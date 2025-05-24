@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, FeatureGroup } from 'react-leaflet';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, FeatureGroup, CircleMarker } from 'react-leaflet';
 import { EditControl } from 'react-leaflet-draw';
 import L from 'leaflet'; // Import Leaflet library for custom icons if needed later
 import 'leaflet-draw/dist/leaflet.draw.css'; // Import drawing tool CSS
@@ -47,9 +47,38 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
   const [classStudents, setClassStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState('all'); // 'all' 또는 특정 학생 ID
   const [lessonData, setLessonData] = useState(null); // 레슨 데이터 저장
+  const [isFirebaseAvailable, setIsFirebaseAvailable] = useState(false); // Firebase 연결 상태
   const markerPopupRef = useRef(); // Ref for marker popups
   const featureGroupRef = useRef(); // Ref for the FeatureGroup containing shapes
-  const { currentUser, userRole, classId, isTeacher, isStudent } = useAuth(); // Get current user and role
+  
+  // Auth 컨텍스트를 항상 호출 (Hook 규칙 준수)
+  const authContext = useAuth();
+  const currentUser = authContext?.currentUser || null;
+  const classId = authContext?.classId || null;
+  
+  // Firebase 연결 상태 확인
+  useEffect(() => {
+    try {
+      if (authContext && !authContext.firebaseError) {
+        setIsFirebaseAvailable(true);
+      } else {
+        setIsFirebaseAvailable(false);
+        console.log("Firebase 인증을 사용할 수 없습니다. 오프라인 모드로 실행합니다.");
+      }
+    } catch (error) {
+      console.log("Firebase 인증을 사용할 수 없습니다. 오프라인 모드로 실행합니다.");
+      setIsFirebaseAvailable(false);
+    }
+  }, [authContext]);
+
+  // useCallback으로 함수들을 메모이제이션
+  const isTeacher = useCallback(() => {
+    return authContext?.isTeacher() || false;
+  }, [authContext]);
+
+  const isStudent = useCallback(() => {
+    return authContext?.isStudent() || false;
+  }, [authContext]);
 
   // 지도 설정 (mapConfig가 있으면 사용, 없으면 기본값)
   const mapCenter = mapConfig?.center ? [mapConfig.center.lat, mapConfig.center.lng] : center;
@@ -62,6 +91,35 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
         const response = await import(`../lessons/lesson${lessonId}/data.json`);
         setLessonData(response.default);
         console.log("레슨 데이터 로드됨:", response.default);
+        
+        // 레슨 초기 데이터를 지도에 적용
+        if (response.default) {
+          // 초기 마커가 있으면 추가
+          if (response.default.initialMarkers) {
+            setMarkers(prev => {
+              const existingIds = prev.map(m => m.id);
+              const newMarkers = response.default.initialMarkers.filter(m => !existingIds.includes(m.id));
+              return [...prev, ...newMarkers.map(marker => ({
+                ...marker,
+                id: marker.id || Date.now().toString(),
+                isInitial: true // 초기 마커 표시
+              }))];
+            });
+          }
+          
+          // 초기 도형이 있으면 추가  
+          if (response.default.initialShapes) {
+            setShapes(prev => {
+              const existingIds = prev.map(s => s.id);
+              const newShapes = response.default.initialShapes.filter(s => !existingIds.includes(s.id));
+              return [...prev, ...newShapes.map(shape => ({
+                ...shape,
+                id: shape.id || Date.now().toString(),
+                isInitial: true // 초기 도형 표시
+              }))];
+            });
+          }
+        }
       } catch (error) {
         console.error("레슨 데이터 로드 실패:", error);
       }
@@ -72,10 +130,17 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
     }
   }, [lessonId]);
 
+  // Ref to the user's activity document in Firestore
+  const getUserActivityDocRef = useCallback((uid) => {
+    return (uid && isFirebaseAvailable) ? doc(db, "lessons", String(lessonId), "activities", uid) : null;
+  }, [lessonId, isFirebaseAvailable]);
+
+  const userActivityDocRef = getUserActivityDocRef(currentUser?.uid);
+
   // 교사가 보는 경우 첫 로드 시 학급의 모든 학생 정보를 로드
   useEffect(() => {
     const loadClassStudents = async () => {
-      if (isTeacher()) {
+      if (isFirebaseAvailable && isTeacher()) {
         try {
           const studentsQuery = query(
             collection(db, "users"), 
@@ -104,21 +169,21 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       }
     };
     
-    if (currentUser) {
+    if (currentUser && isFirebaseAvailable) {
       loadClassStudents();
     }
-  }, [currentUser, classId, isTeacher, studentId]);
-
-  // Ref to the user's activity document in Firestore
-  // Use optional chaining in case currentUser is null during initial load
-  const getUserActivityDocRef = (uid) => {
-    return uid ? doc(db, "lessons", String(lessonId), "activities", uid) : null;
-  };
-
-  const userActivityDocRef = getUserActivityDocRef(currentUser?.uid);
+  }, [currentUser, classId, isTeacher, studentId, isFirebaseAvailable]);
 
   // --- Firestore Data Loading --- 
   useEffect(() => {
+    // Firebase를 사용할 수 없는 경우 빈 배열로 초기화하고 종료
+    if (!isFirebaseAvailable) {
+      console.log("Firebase를 사용할 수 없습니다. 오프라인 모드로 실행합니다.");
+      setMarkers([]);
+      setShapes([]);
+      return;
+    }
+
     if (!currentUser) {
       console.log("User not logged in, cannot load data.");
       setMarkers([]);
@@ -217,11 +282,27 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
         return () => { clearInterval(intervalId); };
       }
     }
-  }, [currentUser, lessonId, isStudent, isTeacher, userActivityDocRef, selectedStudent]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser, lessonId, isStudent, isTeacher, userActivityDocRef, selectedStudent, isFirebaseAvailable]);
 
   // --- Event Handlers with Firestore Integration ---
 
   const handleMapClick = async (latlng) => {
+    // Firebase를 사용할 수 없는 경우 로컬에서만 마커 추가
+    if (!isFirebaseAvailable) {
+      console.log("Firebase를 사용할 수 없습니다. 로컬에서만 마커를 추가합니다.");
+      if (window.confirm('이 위치에 마커를 추가하시겠습니까? (오프라인 모드 - 저장되지 않습니다)')) {
+        const newMarker = {
+          id: Date.now(),
+          position: [latlng.lat, latlng.lng],
+          description: '새로운 표시 (오프라인)',
+          userId: 'offline-user'
+        };
+        setMarkers((prevMarkers) => [...prevMarkers, newMarker]);
+      }
+      return;
+    }
+
     // 학생 또는 교사가 자신의 데이터를 추가하는 경우에만 허용
     // 교사가 다른 학생 데이터를 보고 있을 때는 추가 불가
     if (!userActivityDocRef || (isTeacher() && selectedStudent !== 'all' && selectedStudent !== currentUser.uid)) {
@@ -252,8 +333,6 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
           setMarkers((prevMarkers) => prevMarkers.filter(m => m.id !== newMarker.id));
           // TODO: Show error to user
       }
-    } else {
-      console.log("Marker addition cancelled by user.");
     }
   };
 
@@ -478,8 +557,33 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
   };
   // -----------------------------
 
+  console.log("MapView 렌더링 중:", {
+    lessonData: lessonData ? "로드됨" : "로딩중",
+    mapCenter,
+    mapZoom,
+    markersCount: markers.length,
+    initialMarkersCount: lessonData?.initialMarkers?.length || 0,
+    surroundingCitiesCount: lessonData?.surroundingCities?.length || 0,
+    isFirebaseAvailable,
+    currentUser: currentUser?.email || "not logged in",
+    authContext: authContext ? "available" : "not available"
+  });
+
   return (
     <div>
+      {/* 디버깅용 정보 표시 */}
+      <div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded">
+        📍 지도 정보: 레슨 {lessonId} | 중심: [{mapCenter[0]}, {mapCenter[1]}] | 줌: {mapZoom} | 
+        초기마커: {lessonData?.initialMarkers?.length || 0}개 | 주변도시: {lessonData?.surroundingCities?.length || 0}개
+      </div>
+      
+      {/* Firebase 연결 상태 표시 */}
+      {!isFirebaseAvailable && (
+        <div className="mb-4 p-3 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded">
+          ⚠️ 오프라인 모드: Firebase 연결을 사용할 수 없습니다. 일부 기능이 제한됩니다.
+        </div>
+      )}
+      
       {/* 교사용 학생 선택 드롭다운 */}
       {isTeacher() && classStudents.length > 0 && (
         <div className="mb-4">
@@ -500,152 +604,154 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
         </div>
       )}
       
-      <MapContainer center={mapCenter} zoom={mapZoom} scrollWheelZoom={true} style={{ height: '600px', width: '100%' }}>
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-
-        {/* Feature Group for Drawings */}
-        <FeatureGroup ref={featureGroupRef}>
-          <EditControl
-            position="topright"
-            onCreated={_onCreate}
-            onEdited={_onEdited}
-            onDeleted={_onDeleted}
-            draw={{
-              rectangle: true,
-              polygon: true,
-              circle: true,
-              circlemarker: false, // Disable circle markers if not needed
-              marker: false, // Disable draw tool marker, use map click instead
-              polyline: true,
-            }}
-            edit={{
-              featureGroup: featureGroupRef.current, // Necessary for edit handlers
-              remove: true,
-            }}
+      {/* 지도 컨테이너 - 높이와 너비를 명시적으로 설정 */}
+      <div style={{ height: '600px', width: '100%', border: '1px solid #ccc' }}>
+        <MapContainer 
+          center={mapCenter} 
+          zoom={mapZoom} 
+          scrollWheelZoom={true} 
+          style={{ height: '100%', width: '100%' }}
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          {/* Render shapes loaded from Firestore */}
-          {shapes.map(shape => {
-             // Use a key based on shape id
-             // We need to render shapes manually IF we want custom popups/styles per shape
-             // For now, react-leaflet-draw handles rendering within FeatureGroup
-             // based on the layers added/updated in useEffect/handlers.
-             // If needed, render L.geoJSON(shape.geojson) here with options.
-             return null; 
-          })}
-        </FeatureGroup>
 
-        {/* Render Markers */}
-        <MapEvents onMapClick={handleMapClick} />
-        
-        {/* 레슨 데이터의 초기 마커들 */}
-        {lessonData?.initialMarkers?.map((marker) => (
-          <Marker key={`initial-${marker.id}`} position={[marker.position.lat, marker.position.lng]}>
-            <Popup>
-              <div>
-                <h4 className="font-bold">{marker.title}</h4>
-                <p>{marker.description}</p>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
+          {/* Feature Group for Drawings */}
+          <FeatureGroup ref={featureGroupRef}>
+            <EditControl
+              position="topright"
+              onCreated={_onCreate}
+              onEdited={_onEdited}
+              onDeleted={_onDeleted}
+              draw={{
+                rectangle: true,
+                polygon: true,
+                circle: true,
+                circlemarker: false, // Disable circle markers if not needed
+                marker: false, // Disable draw tool marker, use map click instead
+                polyline: true,
+              }}
+              edit={{
+                featureGroup: featureGroupRef.current, // Necessary for edit handlers
+                remove: true,
+              }}
+            />
+            {/* Render shapes loaded from Firestore */}
+            {shapes.map(shape => {
+               // Use a key based on shape id
+               // We need to render shapes manually IF we want custom popups/styles per shape
+               // For now, react-leaflet-draw handles rendering within FeatureGroup
+               // based on the layers added/updated in useEffect/handlers.
+               // If needed, render L.geoJSON(shape.geojson) here with options.
+               return null; 
+            })}
+          </FeatureGroup>
 
-        {/* 주변 도시 마커들 */}
-        {lessonData?.surroundingCities?.map((city) => {
-          // 색상에 따라 다른 아이콘 생성
-          const cityIcon = new L.Icon({
-            iconUrl: city.color === '#FFB6C1' 
-              ? 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-pink.png'
-              : 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
-            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-            iconSize: [25, 41],
-            iconAnchor: [12, 41],
-            popupAnchor: [1, -34],
-            shadowSize: [41, 41]
-          });
-
-          return (
-            <Marker 
-              key={`city-${city.name}`} 
-              position={[city.position.lat, city.position.lng]}
-              icon={cityIcon}
-            >
+          {/* Render Markers */}
+          <MapEvents onMapClick={handleMapClick} />
+          
+          {/* 레슨 데이터의 초기 마커들 */}
+          {lessonData?.initialMarkers?.map((marker) => (
+            <Marker key={`initial-${marker.id}`} position={[marker.position.lat, marker.position.lng]}>
               <Popup>
                 <div>
-                  <h4 className="font-bold">{city.name}</h4>
-                  <p>서울의 {city.direction}에 위치</p>
-                  <div 
-                    className="w-4 h-4 inline-block rounded-full mr-2"
-                    style={{ backgroundColor: city.color }}
-                  ></div>
-                  {city.color === '#FFB6C1' ? '분홍색 표시' : '하늘색 표시'}
+                  <h4 className="font-bold">{marker.title}</h4>
+                  <p>{marker.description}</p>
                 </div>
               </Popup>
             </Marker>
-          );
-        })}
+          ))}
 
-        {/* 사용자가 추가한 마커들 */}
-        {markers.map((marker) => (
-          // Only render markers if they have a valid position
-          marker.position && marker.position.length === 2 && (
-            <Marker key={marker.id} position={marker.position}>
-              <Popup ref={markerPopupRef} minWidth={250}>
-                {editingMarkerId === marker.id ? (
+          {/* 주변 도시 마커들 */}
+          {lessonData?.surroundingCities?.map((city) => {
+            return (
+              <CircleMarker 
+                key={`city-${city.name}`} 
+                center={[city.position.lat, city.position.lng]}
+                radius={15}
+                pathOptions={{
+                  color: city.color === '#FFB6C1' ? '#FF69B4' : '#1E90FF',
+                  fillColor: city.color === '#FFB6C1' ? '#FFB6C1' : '#87CEEB',
+                  fillOpacity: 0.8,
+                  weight: 3
+                }}
+              >
+                <Popup>
                   <div>
-                    <input
-                      type="text"
-                      value={currentDescription}
-                      onChange={handleDescriptionChange}
-                      onClick={(e) => e.stopPropagation()}
-                      className="border px-2 py-1 mr-2 w-full mb-1"
-                      autoFocus
-                    />
-                    <button 
-                      onClick={(e) => { 
-                        e.stopPropagation(); 
-                        handleSaveDescription(marker.id); 
-                      }}
-                      className="bg-green-500 text-white px-2 py-1 rounded mr-1 text-sm"
-                    >저장</button>
-                    <button 
-                      onClick={(e) => { 
-                        e.stopPropagation(); 
-                        handleCancelEdit(); 
-                      }}
-                      className="bg-gray-400 text-white px-2 py-1 rounded text-sm"
-                    >취소</button>
+                    <h4 className="font-bold">{city.name}</h4>
+                    <p>서울의 {city.direction}에 위치</p>
+                    <div 
+                      className="w-4 h-4 inline-block rounded-full mr-2"
+                      style={{ backgroundColor: city.color }}
+                    ></div>
+                    {city.color === '#FFB6C1' ? '분홍색 표시' : '하늘색 표시'}
                   </div>
-                ) : (
-                  <div>
-                    <p className="mb-2">{marker.description}</p>
-                    {(currentUser && (marker.userId === currentUser.uid || isTeacher())) && (
-                      <>
-                        <button 
-                          onClick={(e) => { 
-                            e.stopPropagation(); 
-                            handleEditClick(marker); 
-                          }}
-                          className="bg-blue-500 text-white px-2 py-1 rounded mr-1 text-sm"
-                        >수정</button>
-                        <button 
-                          onClick={(e) => { 
-                            e.stopPropagation(); 
-                            handleMarkerDelete(marker.id); 
-                          }}
-                          className="bg-red-500 text-white px-2 py-1 rounded text-sm"
-                        >삭제</button>
-                      </>
-                    )}
-                  </div>
-                )}
-              </Popup>
-            </Marker>
-          )
-        ))}
-      </MapContainer>
+                </Popup>
+              </CircleMarker>
+            );
+          })}
+
+          {/* 사용자가 추가한 마커들 */}
+          {markers.map((marker) => (
+            // Only render markers if they have a valid position
+            marker.position && marker.position.length === 2 && (
+              <Marker key={marker.id} position={marker.position}>
+                <Popup ref={markerPopupRef} minWidth={250}>
+                  {editingMarkerId === marker.id ? (
+                    <div>
+                      <input
+                        type="text"
+                        value={currentDescription}
+                        onChange={handleDescriptionChange}
+                        onClick={(e) => e.stopPropagation()}
+                        className="border px-2 py-1 mr-2 w-full mb-1"
+                        autoFocus
+                      />
+                      <button 
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          handleSaveDescription(marker.id); 
+                        }}
+                        className="bg-green-500 text-white px-2 py-1 rounded mr-1 text-sm"
+                      >저장</button>
+                      <button 
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          handleCancelEdit(); 
+                        }}
+                        className="bg-gray-400 text-white px-2 py-1 rounded text-sm"
+                      >취소</button>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="mb-2">{marker.description}</p>
+                      {(currentUser && (marker.userId === currentUser.uid || isTeacher())) && (
+                        <>
+                          <button 
+                            onClick={(e) => { 
+                              e.stopPropagation(); 
+                              handleEditClick(marker); 
+                            }}
+                            className="bg-blue-500 text-white px-2 py-1 rounded mr-1 text-sm"
+                          >수정</button>
+                          <button 
+                            onClick={(e) => { 
+                              e.stopPropagation(); 
+                              handleMarkerDelete(marker.id); 
+                            }}
+                            className="bg-red-500 text-white px-2 py-1 rounded text-sm"
+                          >삭제</button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </Popup>
+              </Marker>
+            )
+          ))}
+        </MapContainer>
+      </div>
     </div>
   );
 }

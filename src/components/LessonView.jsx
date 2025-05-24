@@ -28,8 +28,24 @@ function LessonView({ lessonConfig, lessonId, activityData }) {
     return answers[questionId] === question.answer ? 'text-green-600' : 'text-red-600';
   };
 
+  console.log("LessonView 렌더링:", {
+    lessonConfigTitle: lessonConfig?.title || "설정 없음",
+    lessonId,
+    hasMapConfig: !!lessonConfig?.mapConfig,
+    mapCenter: lessonConfig?.mapConfig?.center,
+    mapZoom: lessonConfig?.mapConfig?.zoom,
+    questionsCount: lessonConfig?.questions?.length || 0
+  });
+
   return (
     <div>
+      {/* 디버깅 정보 */}
+      <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
+        📚 레슨 정보: {lessonConfig?.title || "로딩중..."} | 
+        지도설정: {lessonConfig?.mapConfig ? "있음" : "없음"} | 
+        질문: {lessonConfig?.questions?.length || 0}개
+      </div>
+
       {/* ActivityTemplate을 사용하여 레슨 UI 렌더링 */}
       <ActivityTemplate 
         lessonConfig={lessonConfig} 

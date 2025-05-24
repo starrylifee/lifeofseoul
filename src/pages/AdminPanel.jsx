@@ -92,8 +92,8 @@ function AdminPanel() {
 
     // 교사 ID는 입력한 그대로 사용
     const fullTeacherId = teacherId;
-    // Firebase 인증을 위한 이메일 형식으로 변환
-    const email = `${fullTeacherId}@example.com`;
+    // Firebase 인증을 위한 이메일 형식으로 변환 (공백 제거)
+    const email = `${fullTeacherId.replace(/\s+/g, '')}@example.com`;
     
     try {
       setLoading(true);
@@ -140,44 +140,107 @@ function AdminPanel() {
     try {
       setLoading(true);
       const auth = getAuth();
-      let createdCount = 0;
       
-      for (let i = 1; i <= 30; i++) {
-        const studentNumber = i;
-        const fullStudentId = `${selectedClass}-${studentNumber}`;
-        const email = `${fullStudentId}@example.com`;
-        const password = `${studentPrefix}${studentNumber}`; // 예: student1, student2, ...
+      // Firebase 연결 상태 확인
+      console.log("=== Firebase 연결 상태 확인 ===");
+      console.log("Auth instance:", auth);
+      console.log("Firebase app:", auth.app);
+      console.log("DB instance:", db);
+      
+      let createdCount = 0;
+      let errors = [];
+      
+      console.log("학생 계정 생성 시작:", selectedClass, studentPrefix);
+      setMessage({ text: '학생 계정 생성 중... 잠시만 기다려주세요.', isError: false });
+
+      // 5개씩 배치로 나누어 생성 (rate limiting 방지)
+      const batchSize = 5;
+      const totalStudents = 30;
+      
+      for (let batch = 0; batch < Math.ceil(totalStudents / batchSize); batch++) {
+        const startIndex = batch * batchSize + 1;
+        const endIndex = Math.min((batch + 1) * batchSize, totalStudents);
         
-        try {
-          // Firebase Authentication 계정 생성
-          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-          const userId = userCredential.user.uid;
+        console.log(`배치 ${batch + 1} 시작: 학생 ${startIndex}-${endIndex}번`);
+        
+        // 배치 내에서 순차적으로 생성
+        for (let i = startIndex; i <= endIndex; i++) {
+          const studentNumber = i;
+          const fullStudentId = `${selectedClass}-${studentNumber}`;
+          // 이메일 주소에서 공백 제거
+          const email = `${fullStudentId.replace(/\s+/g, '')}@example.com`;
+          const password = `${studentPrefix}${studentNumber}`;
           
-          // Firestore에 사용자 정보 저장
-          await setDoc(doc(db, "users", userId), {
-            userId: fullStudentId,
-            email,
-            role: 'student',
-            classId: selectedClass,
-            studentNumber,
-            createdAt: new Date()
-          });
-          
-          createdCount++;
-        } catch (studentError) {
-          console.error(`Error creating student ${studentNumber}:`, studentError);
-          // 개별 학생 생성 실패 시 계속 진행 (다른 학생 시도)
+          try {
+            console.log(`학생 ${studentNumber} 계정 생성 시도:`, { email, password: password.length + '자리' });
+            
+            // Firebase Authentication 계정 생성
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const userId = userCredential.user.uid;
+            
+            console.log(`학생 ${studentNumber} Authentication 성공:`, userId);
+            
+            // Firestore에 사용자 정보 저장
+            const userDoc = {
+              userId: fullStudentId,
+              email,
+              role: 'student',
+              classId: selectedClass,
+              studentNumber,
+              createdAt: new Date(),
+              createdBy: 'admin'
+            };
+            
+            console.log(`학생 ${studentNumber} Firestore 저장 시도:`, userDoc);
+            await setDoc(doc(db, "users", userId), userDoc);
+            console.log(`학생 ${studentNumber} Firestore 저장 성공`);
+            
+            createdCount++;
+            
+            // 각 계정 생성 후 잠시 대기 (500ms)
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+          } catch (studentError) {
+            console.error(`학생 ${studentNumber} 생성 실패:`, studentError);
+            console.error(`에러 코드: ${studentError.code}`);
+            console.error(`에러 메시지: ${studentError.message}`);
+            errors.push(`${studentNumber}번 (${studentError.code}): ${studentError.message}`);
+          }
+        }
+        
+        // 배치 간 더 긴 대기 (2초)
+        if (batch < Math.ceil(totalStudents / batchSize) - 1) {
+          console.log(`배치 ${batch + 1} 완료. 2초 대기 후 다음 배치 시작...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
       }
       
-      setMessage({ 
-        text: `${selectedClass} 학급의 학생 계정 ${createdCount}개가 생성되었습니다.`, 
-        isError: false 
-      });
+      console.log("=== 학생 계정 생성 완료 ===");
+      console.log("성공:", createdCount);
+      console.log("실패:", errors.length);
+      if (errors.length > 0) {
+        console.log("실패 상세:", errors);
+      }
+      
+      if (errors.length > 0) {
+        setMessage({ 
+          text: `${selectedClass} 학급의 학생 계정 ${createdCount}개가 생성되었습니다. 실패: ${errors.length}개\n오류: ${errors.slice(0, 3).join(', ')}${errors.length > 3 ? '...' : ''}`, 
+          isError: createdCount === 0 
+        });
+      } else {
+        setMessage({ 
+          text: `${selectedClass} 학급의 학생 계정 ${createdCount}개가 모두 성공적으로 생성되었습니다.`, 
+          isError: false 
+        });
+      }
+      
       setStudentPrefix('');
       setLoading(false);
     } catch (error) {
-      console.error("Error in student accounts creation process:", error);
+      console.error("=== 학생 계정 생성 프로세스 전체 오류 ===");
+      console.error("Error object:", error);
+      console.error("Error code:", error.code);
+      console.error("Error message:", error.message);
       setMessage({ text: '학생 계정 생성에 실패했습니다: ' + error.message, isError: true });
       setLoading(false);
     }

@@ -6,7 +6,7 @@ import '../assets/styles/map.css';
 
 function ActivityTemplate({ lessonConfig, children, lessonId, activityData }) {
   const { currentUser } = useAuth();
-  const [currentStep, setCurrentStep] = useState(LESSON_STEPS.INTRO);
+  const [currentStep, setCurrentStep] = useState(LESSON_STEPS.BASIC);
   const [stepProgress, setStepProgress] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -128,14 +128,20 @@ function ActivityTemplate({ lessonConfig, children, lessonId, activityData }) {
         {currentStep === LESSON_STEPS.BASIC && (
           <div>
             {Array.isArray(lessonConfig?.basicLearning) ? (
-              <ul className="list-disc list-inside space-y-2">
+              <ul className="list-disc list-inside space-y-2 mb-4">
                 {lessonConfig.basicLearning.map((item, index) => (
                   <li key={index} className="text-gray-700">{item}</li>
                 ))}
               </ul>
             ) : (
-              <div>{lessonConfig?.basicLearning}</div>
+              <div className="mb-4">{lessonConfig?.basicLearning}</div>
             )}
+            
+            {/* 기초 배움 단계에서도 지도 표시 */}
+            <div className="mt-4">
+              <h4 className="text-lg font-medium mb-2">📍 지도 활동</h4>
+              {children}
+            </div>
           </div>
         )}
         
@@ -150,7 +156,12 @@ function ActivityTemplate({ lessonConfig, children, lessonId, activityData }) {
             ) : (
               <p className="mb-3">{lessonConfig?.guidedActivity}</p>
             )}
-            {children}
+            
+            {/* 가이드 활동 단계에서도 지도 표시 */}
+            <div className="mt-4">
+              <h4 className="text-lg font-medium mb-2">🗺️ 가이드 지도 활동</h4>
+              {children}
+            </div>
           </div>
         )} 
         

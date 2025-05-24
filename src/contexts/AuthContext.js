@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth, db } from '../firebase'; // Firebase auth and Firestore instances
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs, orderBy } from "firebase/firestore";
 
 const AuthContext = createContext();
 
@@ -16,6 +16,7 @@ export function AuthProvider({ children }) {
   const [classId, setClassId] = useState(null);
   const [studentNumber, setStudentNumber] = useState(null);
   const [loading, setLoading] = useState(true); // Add loading state
+  const [firebaseError, setFirebaseError] = useState(false); // Firebase 연결 오류 상태
 
   // 사용자 정보 불러오기 (역할, 학급 등)
   const fetchUserData = async (user) => {
@@ -39,31 +40,110 @@ export function AuthProvider({ children }) {
       }
     } catch (error) {
       console.error("Error fetching user data:", error);
+      setFirebaseError(true);
+    }
+  };
+
+  // 교사가 자신의 학급 학생들을 조회하는 함수
+  const fetchClassStudents = async () => {
+    if (!isTeacher() || !classId) {
+      console.log("교사가 아니거나 학급 정보가 없습니다.");
+      return [];
+    }
+
+    try {
+      const studentsQuery = query(
+        collection(db, "users"),
+        where("classId", "==", classId),
+        where("role", "==", "student"),
+        orderBy("studentNumber", "asc")
+      );
+      
+      const studentsSnapshot = await getDocs(studentsQuery);
+      const students = studentsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      console.log(`${classId} 학급 학생 ${students.length}명 조회됨:`, students);
+      return students;
+    } catch (error) {
+      console.error("학급 학생 조회 오류:", error);
+      return [];
+    }
+  };
+
+  // 같은 학급의 교사를 조회하는 함수 (학생용)
+  const fetchClassTeacher = async () => {
+    if (!isStudent() || !classId) {
+      console.log("학생이 아니거나 학급 정보가 없습니다.");
+      return null;
+    }
+
+    try {
+      const teacherQuery = query(
+        collection(db, "users"),
+        where("classId", "==", classId),
+        where("role", "==", "teacher")
+      );
+      
+      const teacherSnapshot = await getDocs(teacherQuery);
+      if (!teacherSnapshot.empty) {
+        const teacherData = teacherSnapshot.docs[0].data();
+        console.log(`${classId} 학급 교사 조회됨:`, teacherData);
+        return {
+          id: teacherSnapshot.docs[0].id,
+          ...teacherData
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error("학급 교사 조회 오류:", error);
+      return null;
     }
   };
 
   useEffect(() => {
-    // Subscribe to auth state changes
-    const unsubscribe = onAuthStateChanged(auth, async user => {
-      setCurrentUser(user);
-      if (user) {
-        await fetchUserData(user);
-      } else {
-        // Reset user data if logged out
-        setUserId(null);
-        setUserRole(null);
-        setClassId(null);
-        setStudentNumber(null);
-      }
-      setLoading(false);
-      console.log("Auth State Changed, Current User:", user?.email);
-    });
+    // Firebase 연결 시도
+    try {
+      // Subscribe to auth state changes
+      const unsubscribe = onAuthStateChanged(auth, async user => {
+        setCurrentUser(user);
+        if (user) {
+          await fetchUserData(user);
+        } else {
+          // Reset user data if logged out
+          setUserId(null);
+          setUserRole(null);
+          setClassId(null);
+          setStudentNumber(null);
+        }
+        setLoading(false);
+        console.log("Auth State Changed, Current User:", user?.email);
+      });
 
-    // Unsubscribe on unmount
-    return unsubscribe;
+      // Unsubscribe on unmount
+      return unsubscribe;
+    } catch (error) {
+      console.error("Firebase 연결 오류:", error);
+      setFirebaseError(true);
+      setLoading(false);
+      
+      // Firebase를 사용할 수 없는 경우 데모 모드로 실행
+      console.log("Firebase를 사용할 수 없습니다. 데모 모드로 실행합니다.");
+    }
   }, []);
 
   const logout = () => {
+    if (firebaseError) {
+      // Firebase를 사용할 수 없는 경우 로컬에서만 로그아웃
+      setCurrentUser(null);
+      setUserId(null);
+      setUserRole(null);
+      setClassId(null);
+      setStudentNumber(null);
+      return Promise.resolve();
+    }
     return signOut(auth);
   };
 
@@ -86,7 +166,10 @@ export function AuthProvider({ children }) {
     isStudent,
     isSameClass,
     logout,
-    fetchUserData
+    fetchUserData,
+    fetchClassStudents,
+    fetchClassTeacher,
+    firebaseError
   };
 
   // Render children only when not loading
