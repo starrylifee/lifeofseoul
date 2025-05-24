@@ -39,16 +39,38 @@ function MapEvents({ onMapClick }) {
   return null;
 }
 
-function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', studentId = null /* 학생 ID가 넘어오면 특정 학생 데이터만 조회 */ }) {
+function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', studentId = null, mapConfig = null, activityData = null }) {
   const [markers, setMarkers] = useState([]); // Initialize empty, load from Firestore
   const [shapes, setShapes] = useState([]);   // Initialize empty, load from Firestore
   const [editingMarkerId, setEditingMarkerId] = useState(null);
   const [currentDescription, setCurrentDescription] = useState('');
   const [classStudents, setClassStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState('all'); // 'all' 또는 특정 학생 ID
+  const [lessonData, setLessonData] = useState(null); // 레슨 데이터 저장
   const markerPopupRef = useRef(); // Ref for marker popups
   const featureGroupRef = useRef(); // Ref for the FeatureGroup containing shapes
   const { currentUser, userRole, classId, isTeacher, isStudent } = useAuth(); // Get current user and role
+
+  // 지도 설정 (mapConfig가 있으면 사용, 없으면 기본값)
+  const mapCenter = mapConfig?.center ? [mapConfig.center.lat, mapConfig.center.lng] : center;
+  const mapZoom = mapConfig?.zoom || zoom;
+
+  // 레슨 데이터 로드
+  useEffect(() => {
+    const loadLessonData = async () => {
+      try {
+        const response = await import(`../lessons/lesson${lessonId}/data.json`);
+        setLessonData(response.default);
+        console.log("레슨 데이터 로드됨:", response.default);
+      } catch (error) {
+        console.error("레슨 데이터 로드 실패:", error);
+      }
+    };
+    
+    if (lessonId) {
+      loadLessonData();
+    }
+  }, [lessonId]);
 
   // 교사가 보는 경우 첫 로드 시 학급의 모든 학생 정보를 로드
   useEffect(() => {
@@ -478,7 +500,7 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
         </div>
       )}
       
-      <MapContainer center={center} zoom={zoom} scrollWheelZoom={true} style={{ height: '600px', width: '100%' }}>
+      <MapContainer center={mapCenter} zoom={mapZoom} scrollWheelZoom={true} style={{ height: '600px', width: '100%' }}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -517,6 +539,55 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
 
         {/* Render Markers */}
         <MapEvents onMapClick={handleMapClick} />
+        
+        {/* 레슨 데이터의 초기 마커들 */}
+        {lessonData?.initialMarkers?.map((marker) => (
+          <Marker key={`initial-${marker.id}`} position={[marker.position.lat, marker.position.lng]}>
+            <Popup>
+              <div>
+                <h4 className="font-bold">{marker.title}</h4>
+                <p>{marker.description}</p>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+
+        {/* 주변 도시 마커들 */}
+        {lessonData?.surroundingCities?.map((city) => {
+          // 색상에 따라 다른 아이콘 생성
+          const cityIcon = new L.Icon({
+            iconUrl: city.color === '#FFB6C1' 
+              ? 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-pink.png'
+              : 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+          });
+
+          return (
+            <Marker 
+              key={`city-${city.name}`} 
+              position={[city.position.lat, city.position.lng]}
+              icon={cityIcon}
+            >
+              <Popup>
+                <div>
+                  <h4 className="font-bold">{city.name}</h4>
+                  <p>서울의 {city.direction}에 위치</p>
+                  <div 
+                    className="w-4 h-4 inline-block rounded-full mr-2"
+                    style={{ backgroundColor: city.color }}
+                  ></div>
+                  {city.color === '#FFB6C1' ? '분홍색 표시' : '하늘색 표시'}
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
+
+        {/* 사용자가 추가한 마커들 */}
         {markers.map((marker) => (
           // Only render markers if they have a valid position
           marker.position && marker.position.length === 2 && (

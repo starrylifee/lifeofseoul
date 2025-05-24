@@ -123,20 +123,43 @@ function ActivityTemplate({ lessonConfig, children, lessonId, activityData }) {
       <div className="mb-6 min-h-[200px]">
         <h3 className="text-xl font-semibold mb-2">{steps[currentStep].name}</h3>
         
-        {currentStep === LESSON_STEPS.INTRO && <div>{steps[currentStep].description}</div>}
-        {currentStep === LESSON_STEPS.BASIC && <div>{steps[currentStep].content}</div>}
+        {currentStep === LESSON_STEPS.INTRO && <div className="text-lg">{steps[currentStep].description}</div>}
+        
+        {currentStep === LESSON_STEPS.BASIC && (
+          <div>
+            {Array.isArray(lessonConfig?.basicLearning) ? (
+              <ul className="list-disc list-inside space-y-2">
+                {lessonConfig.basicLearning.map((item, index) => (
+                  <li key={index} className="text-gray-700">{item}</li>
+                ))}
+              </ul>
+            ) : (
+              <div>{lessonConfig?.basicLearning}</div>
+            )}
+          </div>
+        )}
+        
         {currentStep === LESSON_STEPS.GUIDED && (
           <div>
-            <p className="mb-3">{steps[currentStep].content}</p>
+            {Array.isArray(lessonConfig?.guidedActivity) ? (
+              <ul className="list-disc list-inside space-y-2 mb-4">
+                {lessonConfig.guidedActivity.map((item, index) => (
+                  <li key={index} className="text-gray-700">{item}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mb-3">{lessonConfig?.guidedActivity}</p>
+            )}
             {children}
           </div>
         )} 
+        
         {currentStep === LESSON_STEPS.FREE && (
           <div>
-            <p className="mb-3">{steps[currentStep].content}</p>
+            <p className="mb-3 text-lg font-medium">{lessonConfig?.freeActivity}</p>
             <textarea 
-              className="w-full p-2 border rounded" 
-              rows="4"
+              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+              rows="6"
               placeholder="자유 활동 내용을 입력하세요..."
             ></textarea>
           </div>

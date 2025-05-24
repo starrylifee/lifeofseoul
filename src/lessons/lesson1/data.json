@@ -1,4 +1,75 @@
 {
-  "initialMarkers": [],
-  "initialShapes": []
+  "initialMarkers": [
+    {
+      "id": "seoul-center",
+      "position": { "lat": 37.5665, "lng": 126.9780 },
+      "title": "서울특별시 중심",
+      "description": "서울시청 위치"
+    }
+  ],
+  "initialShapes": [
+    {
+      "id": "seoul-boundary",
+      "type": "polygon",
+      "coordinates": [
+        { "lat": 37.7013, "lng": 126.7348 },
+        { "lat": 37.7013, "lng": 127.2690 },
+        { "lat": 37.4269, "lng": 127.2690 },
+        { "lat": 37.4269, "lng": 126.7348 }
+      ],
+      "color": "#FFD700",
+      "fillOpacity": 0.3,
+      "title": "서울특별시 대략적 경계"
+    }
+  ],
+  "surroundingCities": [
+    {
+      "name": "양주시",
+      "position": { "lat": 37.8267, "lng": 127.0465 },
+      "color": "#FFB6C1",
+      "direction": "북쪽"
+    },
+    {
+      "name": "하남시", 
+      "position": { "lat": 37.5394, "lng": 127.2147 },
+      "color": "#FFB6C1",
+      "direction": "동쪽"
+    },
+    {
+      "name": "과천시",
+      "position": { "lat": 37.4292, "lng": 126.9877 },
+      "color": "#FFB6C1", 
+      "direction": "남쪽"
+    },
+    {
+      "name": "인천광역시",
+      "position": { "lat": 37.4563, "lng": 126.7052 },
+      "color": "#FFB6C1",
+      "direction": "서쪽"
+    },
+    {
+      "name": "고양시",
+      "position": { "lat": 37.6584, "lng": 126.8320 },
+      "color": "#87CEEB",
+      "direction": "북서쪽"
+    },
+    {
+      "name": "성남시",
+      "position": { "lat": 37.4201, "lng": 127.1262 },
+      "color": "#87CEEB",
+      "direction": "남동쪽"
+    },
+    {
+      "name": "시흥시", 
+      "position": { "lat": 37.3804, "lng": 126.8028 },
+      "color": "#87CEEB",
+      "direction": "남서쪽"
+    },
+    {
+      "name": "남양주시",
+      "position": { "lat": 37.6364, "lng": 127.2168 },
+      "color": "#87CEEB", 
+      "direction": "동북쪽"
+    }
+  ]
 } 
