@@ -1867,13 +1867,14 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
                         html: `<div style="
                           background: ${shape.color || '#dc2626'}; 
                           color: white; 
-                          padding: 2px 6px; 
-                          border-radius: 4px; 
-                          font-size: 10px; 
+                          padding: 4px 8px; 
+                          border-radius: 6px; 
+                          font-size: 14px; 
                           font-weight: bold; 
                           white-space: nowrap;
-                          border: 1px solid white;
-                          box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+                          border: 2px solid white;
+                          box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+                          text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
                         ">${shape.title}</div>`,
                         className: 'polyline-label',
                         iconSize: [0, 0],
@@ -1891,26 +1892,62 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
                   </React.Fragment>
                 );
               } else if (shape.type === 'polygon') {
+                // 폴리곤의 중심점 계산 (간단한 평균값 사용)
+                const centerLat = shape.positions.reduce((sum, pos) => sum + pos.lat, 0) / shape.positions.length;
+                const centerLng = shape.positions.reduce((sum, pos) => sum + pos.lng, 0) / shape.positions.length;
+                
                 return (
-                  <Polygon
-                    key={`initial-shape-${shape.id}`}
-                    positions={shape.positions.map(pos => [pos.lat, pos.lng])}
-                    pathOptions={{
-                      color: shape.color || '#dc2626',
-                      weight: shape.weight || 2,
-                      opacity: 0.8,
-                      fillColor: shape.fillColor || shape.color || '#dc2626',
-                      fillOpacity: shape.fillOpacity || 0.2
-                    }}
-                  >
-                    <Popup>
-                      <div>
-                        <h4 className="font-bold text-purple-600">{shape.title}</h4>
-                        <p>{shape.description}</p>
-                        <small className="text-gray-500">교사 예시 도형</small>
-                      </div>
-                    </Popup>
-                  </Polygon>
+                  <React.Fragment key={`initial-shape-${shape.id}`}>
+                    <Polygon
+                      positions={shape.positions.map(pos => [pos.lat, pos.lng])}
+                      pathOptions={{
+                        color: shape.color || '#dc2626',
+                        weight: shape.weight || 2,
+                        opacity: 0.8,
+                        fillColor: shape.fillColor || shape.color || '#dc2626',
+                        fillOpacity: shape.fillOpacity || 0.2
+                      }}
+                    >
+                      <Popup>
+                        <div>
+                          <h4 className="font-bold text-purple-600">{shape.title}</h4>
+                          <p>{shape.description}</p>
+                          <small className="text-gray-500">교사 예시 도형</small>
+                        </div>
+                      </Popup>
+                    </Polygon>
+                    
+                    {/* 폴리곤 중심에 라벨 마커 추가 */}
+                    <Marker
+                      position={[centerLat, centerLng]}
+                      icon={new L.DivIcon({
+                        html: `<div style="
+                          background: ${shape.color || '#dc2626'}; 
+                          color: white; 
+                          padding: 4px 8px; 
+                          border-radius: 6px; 
+                          font-size: 13px; 
+                          font-weight: bold; 
+                          white-space: nowrap;
+                          border: 2px solid white;
+                          box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+                          text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+                          opacity: 0.9;
+                        ">${shape.title}</div>`,
+                        className: 'polygon-label',
+                        iconSize: [0, 0],
+                        iconAnchor: [0, 0]
+                      })}
+                    >
+                      <Popup>
+                        <div>
+                          <h4 className="font-bold text-purple-600">{shape.title}</h4>
+                          <p>{shape.description}</p>
+                          <small className="text-gray-500">교사 예시 도형</small>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  </React.Fragment>
                 );
               }
               return null;
