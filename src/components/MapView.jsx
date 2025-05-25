@@ -1865,16 +1865,15 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
                       position={[midPosition.lat, midPosition.lng]}
                       icon={new L.DivIcon({
                         html: `<div style="
-                          background: ${shape.color || '#dc2626'}; 
-                          color: white; 
+                          background: white; 
+                          color: black; 
                           padding: 4px 8px; 
                           border-radius: 6px; 
                           font-size: 14px; 
                           font-weight: bold; 
                           white-space: nowrap;
-                          border: 2px solid white;
+                          border: 2px solid ${shape.color || '#dc2626'};
                           box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-                          text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
                         ">${shape.title}</div>`,
                         className: 'polyline-label',
                         iconSize: [0, 0],
@@ -1922,16 +1921,15 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
                       position={[centerLat, centerLng]}
                       icon={new L.DivIcon({
                         html: `<div style="
-                          background: ${shape.color || '#dc2626'}; 
-                          color: white; 
+                          background: white; 
+                          color: black; 
                           padding: 4px 8px; 
                           border-radius: 6px; 
                           font-size: 13px; 
                           font-weight: bold; 
                           white-space: nowrap;
-                          border: 2px solid white;
+                          border: 2px solid ${shape.color || '#dc2626'};
                           box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-                          text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
                           opacity: 0.9;
                         ">${shape.title}</div>`,
                         className: 'polygon-label',
