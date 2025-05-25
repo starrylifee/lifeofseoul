@@ -518,6 +518,98 @@ const LESSON_BOUNDS = {
   }
 };
 
+// 레슨별 지도 설정
+const LESSON_MAP_CONFIGS = {
+  '1': {
+    center: [37.5665, 126.9780],
+    zoom: 10,
+    minZoom: 9,
+    maxZoom: 14,
+    bounds: {
+      southWest: [37.2, 126.5],
+      northEast: [37.9, 127.3]
+    },
+    description: '서울+경기도 (방위 학습용)'
+  },
+  '2': {
+    center: [37.5665, 126.9780],
+    zoom: 11,
+    minZoom: 10,
+    maxZoom: 16,
+    bounds: {
+      southWest: [37.4, 126.7],
+      northEast: [37.7, 127.2]
+    },
+    description: '서울시 (한강과 하천)'
+  },
+  '3': {
+    center: [37.5665, 126.9780],
+    zoom: 11,
+    minZoom: 10,
+    maxZoom: 16,
+    bounds: {
+      southWest: [37.4, 126.7],
+      northEast: [37.7, 127.2]
+    },
+    description: '서울시 (도로와 지하철)'
+  },
+  '4': {
+    center: [37.5665, 126.9780],
+    zoom: 11,
+    minZoom: 10,
+    maxZoom: 16,
+    bounds: {
+      southWest: [37.4, 126.7],
+      northEast: [37.7, 127.2]
+    },
+    description: '서울시 (교통의 중심지)'
+  },
+  '5': {
+    center: [37.5665, 126.9780],
+    zoom: 11,
+    minZoom: 10,
+    maxZoom: 16,
+    bounds: {
+      southWest: [37.4, 126.7],
+      northEast: [37.7, 127.2]
+    },
+    description: '서울시 (행정의 중심지)'
+  },
+  '6': {
+    center: [37.5665, 126.9780],
+    zoom: 11,
+    minZoom: 10,
+    maxZoom: 16,
+    bounds: {
+      southWest: [37.4, 126.7],
+      northEast: [37.7, 127.2]
+    },
+    description: '서울시 (문화의 중심지)'
+  },
+  '7': {
+    center: [37.5665, 126.9780],
+    zoom: 12,
+    minZoom: 11,
+    maxZoom: 16,
+    bounds: {
+      southWest: [37.5, 126.8],
+      northEast: [37.6, 127.1]
+    },
+    description: '서울시 중심부 (궁궐)'
+  },
+  '8': {
+    center: [37.5665, 126.9780],
+    zoom: 12,
+    minZoom: 11,
+    maxZoom: 16,
+    bounds: {
+      southWest: [37.5, 126.8],
+      northEast: [37.6, 127.1]
+    },
+    description: '서울시 중심부 (한양도성)'
+  }
+};
+
 // Helper component to handle map events
 function MapEvents({ onMapClick }) {
   useMapEvents({
@@ -539,16 +631,103 @@ function MapEvents({ onMapClick }) {
   return null;
 }
 
+// 커스텀 지도 컨트롤 컴포넌트
+const MapControls = ({ map, lessonConfig }) => {
+  const handleZoomIn = () => {
+    if (map) {
+      map.setZoom(Math.min(map.getZoom() + 1, lessonConfig.maxZoom));
+    }
+  };
+
+  const handleZoomOut = () => {
+    if (map) {
+      map.setZoom(Math.max(map.getZoom() - 1, lessonConfig.minZoom));
+    }
+  };
+
+  const handleFitBounds = () => {
+    if (map) {
+      map.fitBounds([lessonConfig.bounds.southWest, lessonConfig.bounds.northEast]);
+    }
+  };
+
+  const handleCurrentLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          if (map) {
+            map.setView([latitude, longitude], 15);
+          }
+        },
+        (error) => {
+          alert('현재 위치를 가져올 수 없습니다.');
+          console.error('Geolocation error:', error);
+        }
+      );
+    } else {
+      alert('이 브라우저는 위치 서비스를 지원하지 않습니다.');
+    }
+  };
+
+  return (
+    <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
+      <button
+        onClick={handleZoomIn}
+        className="bg-white hover:bg-gray-50 border border-gray-300 rounded-md p-2 shadow-md transition-colors"
+        title="확대"
+      >
+        <span className="text-lg font-bold">+</span>
+      </button>
+      <button
+        onClick={handleZoomOut}
+        className="bg-white hover:bg-gray-50 border border-gray-300 rounded-md p-2 shadow-md transition-colors"
+        title="축소"
+      >
+        <span className="text-lg font-bold">−</span>
+      </button>
+      <button
+        onClick={handleFitBounds}
+        className="bg-white hover:bg-gray-50 border border-gray-300 rounded-md p-2 shadow-md transition-colors"
+        title="전체 보기"
+      >
+        <span className="text-sm">🗺️</span>
+      </button>
+      <button
+        onClick={handleCurrentLocation}
+        className="bg-white hover:bg-gray-50 border border-gray-300 rounded-md p-2 shadow-md transition-colors"
+        title="현재 위치"
+      >
+        <span className="text-sm">📍</span>
+      </button>
+    </div>
+  );
+};
+
+// 지도 이벤트 및 참조 관리 컴포넌트
+const MapEventHandler = ({ onMapReady, children }) => {
+  const map = useMapEvents({
+    ready() {
+      onMapReady(map);
+    }
+  });
+
+  return children;
+};
+
 function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', studentId = null, mapConfig = null, activityData = null }) {
-  const [markers, setMarkers] = useState([]); // Initialize empty, load from Firestore
-  const [shapes, setShapes] = useState([]);   // Initialize empty, load from Firestore
+  // 상태 변수들
+  const [mapInstance, setMapInstance] = useState(null);
+  const [lessonData, setLessonData] = useState(null);
+  const [markers, setMarkers] = useState([]);
+  const [shapes, setShapes] = useState([]);
   const [editingMarkerId, setEditingMarkerId] = useState(null);
   const [currentDescription, setCurrentDescription] = useState('');
+  const [userColors, setUserColors] = useState({});
+  const [allClasses, setAllClasses] = useState([]);
+  const [selectedClass, setSelectedClass] = useState('all');
   const [classStudents, setClassStudents] = useState([]);
-  const [selectedStudent, setSelectedStudent] = useState('all'); // 'all' 또는 특정 학생 ID
-  const [selectedClass, setSelectedClass] = useState('all'); // 교사용 반별 조회
-  const [allClasses, setAllClasses] = useState([]); // 전체 반 목록
-  const [lessonData, setLessonData] = useState(null); // 레슨 데이터 저장
+  const [selectedStudent, setSelectedStudent] = useState('all');
   const [isFirebaseAvailable, setIsFirebaseAvailable] = useState(false); // Firebase 연결 상태
   const markerPopupRef = useRef(); // Ref for marker popups
   const featureGroupRef = useRef(); // Ref for the FeatureGroup containing shapes
@@ -557,9 +736,6 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
   const authContext = useAuth();
   const currentUser = authContext?.currentUser || null;
   const classId = authContext?.classId || null;
-  
-  // 사용자 색상 정보 상태
-  const [userColors, setUserColors] = useState({}); // userId -> color 매핑
   
   // Firebase 연결 상태 확인
   useEffect(() => {
@@ -619,14 +795,13 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
     return userColors[userId] || DEFAULT_COLOR;
   }, [userColors]);
 
-  // 지도 설정 (mapConfig가 있으면 사용, 없으면 기본값)
-  const mapCenter = mapConfig?.center ? [mapConfig.center.lat, mapConfig.center.lng] : center;
-  const mapZoom = mapConfig?.zoom || zoom;
-  
-  // 레슨별 지도 경계 설정
-  const mapBounds = LESSON_BOUNDS[lessonId] || LESSON_BOUNDS.default;
-  const mapMinZoom = mapBounds.minZoom;
-  const mapMaxZoom = mapBounds.maxZoom;
+  // 레슨별 지도 설정 적용
+  const lessonConfig = LESSON_MAP_CONFIGS[lessonId] || LESSON_MAP_CONFIGS['1'];
+  const mapCenter = center || lessonConfig.center;
+  const mapZoom = zoom || lessonConfig.zoom;
+  const mapMinZoom = lessonConfig.minZoom;
+  const mapMaxZoom = lessonConfig.maxZoom;
+  const mapBounds = lessonConfig.bounds;
 
   // 레슨 데이터 로드
   useEffect(() => {
@@ -1238,12 +1413,268 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
     allClasses: allClasses.length
   });
 
+  // 학생 조사 자료 팝업 컴포넌트
+  const StudentResearchPopup = ({ marker, isEditing, onEdit, onSave, onCancel, onDelete, currentUser, isTeacher }) => {
+    const [description, setDescription] = useState(marker.description || '');
+    const [title, setTitle] = useState(marker.title || '');
+    const [content, setContent] = useState(marker.content || '');
+    const [selectedImages, setSelectedImages] = useState([]);
+    const [uploading, setUploading] = useState(false);
+
+    const handleImageSelect = (e) => {
+      const files = Array.from(e.target.files);
+      if (files.length + (marker.images?.length || 0) > 5) {
+        alert('최대 5개의 이미지만 업로드할 수 있습니다.');
+        return;
+      }
+      setSelectedImages(files);
+    };
+
+    const handleSaveWithImages = async () => {
+      setUploading(true);
+      try {
+        // 실제 구현에서는 Firebase Storage에 이미지 업로드
+        // 현재는 임시로 파일명만 저장
+        const imageUrls = selectedImages.map(file => `temp_${file.name}`);
+        
+        await onSave(marker.id, {
+          title,
+          description,
+          content,
+          images: [...(marker.images || []), ...imageUrls]
+        });
+      } catch (error) {
+        console.error('저장 실패:', error);
+        alert('저장에 실패했습니다.');
+      } finally {
+        setUploading(false);
+      }
+    };
+
+    if (isEditing) {
+      return (
+        <div className="w-80 max-w-sm">
+          <div className="mb-3">
+            <label className="block text-sm font-medium text-gray-700 mb-1">제목</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+              placeholder="조사 장소 제목"
+            />
+          </div>
+          
+          <div className="mb-3">
+            <label className="block text-sm font-medium text-gray-700 mb-1">위치 설명</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full border border-gray-300 rounded px-2 py-1 text-sm h-16 resize-none"
+              placeholder="서울은 ___의 ___쪽에 있습니다"
+            />
+          </div>
+          
+          <div className="mb-3">
+            <label className="block text-sm font-medium text-gray-700 mb-1">조사 내용</label>
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              className="w-full border border-gray-300 rounded px-2 py-1 text-sm h-20 resize-none"
+              placeholder="이 장소에 대해 조사한 내용을 자세히 적어보세요"
+            />
+          </div>
+          
+          <div className="mb-3">
+            <label className="block text-sm font-medium text-gray-700 mb-1">사진 추가</label>
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={handleImageSelect}
+              className="w-full text-xs"
+            />
+            {selectedImages.length > 0 && (
+              <div className="mt-1 text-xs text-gray-500">
+                {selectedImages.length}개 파일 선택됨
+              </div>
+            )}
+          </div>
+          
+          <div className="flex gap-2">
+            <button 
+              onClick={handleSaveWithImages}
+              disabled={uploading}
+              className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600 disabled:opacity-50"
+            >
+              {uploading ? '저장 중...' : '저장'}
+            </button>
+            <button 
+              onClick={onCancel}
+              className="bg-gray-400 text-white px-3 py-1 rounded text-sm hover:bg-gray-500"
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="w-80 max-w-sm">
+        {/* 제목 */}
+        {marker.title && (
+          <div className="mb-2">
+            <h4 className="font-bold text-lg text-gray-800">{marker.title}</h4>
+          </div>
+        )}
+        
+        {/* 위치 설명 */}
+        <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded">
+          <div className="text-xs text-blue-600 font-medium mb-1">📍 위치 관계</div>
+          <p className="text-sm font-medium text-gray-700">{marker.description}</p>
+        </div>
+        
+        {/* 조사 내용 */}
+        {marker.content && (
+          <div className="mb-3 p-2 bg-green-50 border border-green-200 rounded">
+            <div className="text-xs text-green-600 font-medium mb-1">📝 조사 내용</div>
+            <p className="text-sm text-gray-700 whitespace-pre-wrap">{marker.content}</p>
+          </div>
+        )}
+        
+        {/* 이미지 갤러리 */}
+        {marker.images && marker.images.length > 0 && (
+          <div className="mb-3">
+            <div className="text-xs text-gray-600 font-medium mb-2">📷 조사 사진 ({marker.images.length}개)</div>
+            <div className="grid grid-cols-2 gap-2">
+              {marker.images.slice(0, 4).map((imageUrl, index) => (
+                <div key={index} className="aspect-square bg-gray-200 rounded border flex items-center justify-center">
+                  <span className="text-xs text-gray-500">사진 {index + 1}</span>
+                </div>
+              ))}
+              {marker.images.length > 4 && (
+                <div className="aspect-square bg-gray-100 rounded border flex items-center justify-center">
+                  <span className="text-xs text-gray-500">+{marker.images.length - 4}개</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        
+        {/* 작성자 정보 */}
+        <div className="mb-3 p-2 bg-gray-50 border border-gray-200 rounded">
+          <div className="flex items-center mb-1">
+            <div 
+              className="w-3 h-3 rounded-full mr-2 border border-gray-300"
+              style={{ backgroundColor: marker.color || DEFAULT_COLOR }}
+            ></div>
+            <span className="text-sm font-medium text-gray-700">
+              {marker.classId} - {marker.userName || '익명'}
+            </span>
+          </div>
+          
+          <div className="text-xs text-gray-500 space-y-1">
+            <div>작성: {new Date(marker.createdAt).toLocaleString('ko-KR')}</div>
+            {marker.updatedAt && marker.updatedAt !== marker.createdAt && (
+              <div>수정: {new Date(marker.updatedAt).toLocaleString('ko-KR')}</div>
+            )}
+          </div>
+        </div>
+        
+        {/* 상호작용 버튼들 */}
+        <div className="flex gap-1 flex-wrap">
+          {/* 수정/삭제 버튼 */}
+          {(currentUser && (marker.userId === currentUser.uid || isTeacher())) && (
+            <>
+              <button 
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  onEdit(marker); 
+                }}
+                className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600"
+              >
+                ✏️ 수정
+              </button>
+              <button 
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  onDelete(marker.id); 
+                }}
+                className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600"
+              >
+                🗑️ 삭제
+              </button>
+            </>
+          )}
+          
+          {/* 상호작용 버튼들 */}
+          <button 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-600"
+          >
+            👍 좋아요 {marker.likes || 0}
+          </button>
+          <button 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-purple-500 text-white px-2 py-1 rounded text-xs hover:bg-purple-600"
+          >
+            💬 댓글 {marker.commentCount || 0}
+          </button>
+          <button 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-orange-500 text-white px-2 py-1 rounded text-xs hover:bg-orange-600"
+          >
+            📤 공유
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // 마커 저장 함수 개선 (이미지 포함)
+  const handleSaveMarkerWithData = async (markerId, data) => {
+    try {
+      const markerIndex = markers.findIndex(m => m.id === markerId);
+      if (markerIndex === -1) return;
+
+      const updatedMarker = {
+        ...markers[markerIndex],
+        ...data,
+        updatedAt: new Date().toISOString()
+      };
+
+      const newMarkers = [...markers];
+      newMarkers[markerIndex] = updatedMarker;
+      setMarkers(newMarkers);
+
+      // Firebase에 저장
+      if (isFirebaseAvailable && currentUser) {
+        const docRef = doc(db, 'lessons', lessonId, 'activities', currentUser.uid);
+        await updateDoc(docRef, {
+          markers: newMarkers,
+          lastUpdated: serverTimestamp()
+        });
+      }
+
+      setEditingMarkerId(null);
+      setCurrentDescription('');
+    } catch (error) {
+      console.error('마커 저장 실패:', error);
+    }
+  };
+
+  // 지도 준비 완료 핸들러
+  const handleMapReady = (map) => {
+    setMapInstance(map);
+  };
+
   return (
     <div>
       {/* 디버깅용 정보 표시 */}
       <div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded">
         📍 지도 정보: 레슨 {lessonId} | 중심: [{mapCenter[0]}, {mapCenter[1]}] | 줌: {mapZoom} | 
-        범위: {lessonId === '1' ? '서울+경기도' : '서울시'} | 줌 제한: {mapMinZoom}~{mapMaxZoom} |
+        범위: {lessonConfig.description} | 줌 제한: {mapMinZoom}~{mapMaxZoom} |
         초기마커: {lessonData?.initialMarkers?.length || 0}개 | 주변도시: {lessonData?.surroundingCities?.length || 0}개
         {lessonId === '1' && <span> | 🗺️ 행정구역 경계 표시됨</span>}
       </div>
@@ -1346,7 +1777,7 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       )}
       
       {/* 지도 컨테이너 - 높이와 너비를 명시적으로 설정 */}
-      <div style={{ height: '600px', width: '100%', border: '1px solid #ccc' }}>
+      <div style={{ height: '600px', width: '100%', border: '1px solid #ccc', position: 'relative' }}>
         <MapContainer 
           center={mapCenter} 
           zoom={mapZoom} 
@@ -1356,279 +1787,135 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
           maxBounds={[mapBounds.southWest, mapBounds.northEast]}
           maxBoundsViscosity={0.5}
           style={{ height: '100%', width: '100%' }}
+          zoomControl={false} // 기본 줌 컨트롤 비활성화
         >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
-          {/* Feature Group for Drawings */}
-          <FeatureGroup ref={featureGroupRef}>
-            <EditControl
-              position="topright"
-              onCreated={_onCreate}
-              onEdited={_onEdited}
-              onDeleted={_onDeleted}
-              draw={{
-                rectangle: true,
-                polygon: true,
-                circle: true,
-                circlemarker: false, // Disable circle markers if not needed
-                marker: false, // Disable draw tool marker, use map click instead
-                polyline: true,
-              }}
-              edit={{
-                featureGroup: featureGroupRef.current, // Necessary for edit handlers
-                remove: true,
-              }}
-            />
-            {/* Render shapes loaded from Firestore */}
-            {shapes.map(shape => {
-               // Use a key based on shape id
-               // We need to render shapes manually IF we want custom popups/styles per shape
-               // For now, react-leaflet-draw handles rendering within FeatureGroup
-               // based on the layers added/updated in useEffect/handlers.
-               // If needed, render L.geoJSON(shape.geojson) here with options.
-               return null; 
-            })}
-          </FeatureGroup>
-
-          {/* Render Markers */}
-          <MapEvents onMapClick={handleMapClick} />
-          
-          {/* 레슨 데이터의 초기 마커들 (교사 예시) */}
-          {lessonData?.initialMarkers?.map((marker) => (
-            <Marker key={`initial-${marker.id}`} position={[marker.position.lat, marker.position.lng]}>
-              <Popup>
-                <div>
-                  <h4 className="font-bold text-blue-600">{marker.title}</h4>
-                  <p>{marker.description}</p>
-                  <small className="text-gray-500">교사 예시 마커</small>
-                </div>
-              </Popup>
-            </Marker>
-          ))}
-
-          {/* 주변 도시 마커들 (교사 예시) */}
-          {lessonData?.surroundingCities?.map((city) => {
-            const isTransparent = city.fillColor === 'transparent';
-            return (
-              <CircleMarker 
-                key={`city-${city.name}`} 
-                center={[city.position.lat, city.position.lng]}
-                radius={15}
-                pathOptions={{
-                  color: city.color || '#1E90FF',
-                  fillColor: isTransparent ? 'transparent' : (city.color === '#FFB6C1' ? '#FFB6C1' : '#87CEEB'),
-                  fillOpacity: isTransparent ? 0 : 0.8,
-                  weight: 3
+          <MapEventHandler onMapReady={handleMapReady}>
+            {/* Feature Group for Drawings */}
+            <FeatureGroup ref={featureGroupRef}>
+              <EditControl
+                position="topright"
+                onCreated={_onCreate}
+                onEdited={_onEdited}
+                onDeleted={_onDeleted}
+                draw={{
+                  rectangle: true,
+                  polygon: true,
+                  circle: true,
+                  circlemarker: false,
+                  marker: false,
+                  polyline: true,
                 }}
-              >
+                edit={{
+                  featureGroup: featureGroupRef.current,
+                  remove: true,
+                }}
+              />
+            </FeatureGroup>
+
+            {/* Render Markers */}
+            <MapEvents onMapClick={handleMapClick} />
+            
+            {/* 레슨 데이터의 초기 마커들 (교사 예시) */}
+            {lessonData?.initialMarkers?.map((marker) => (
+              <Marker key={`initial-${marker.id}`} position={[marker.position.lat, marker.position.lng]}>
                 <Popup>
                   <div>
-                    <h4 className="font-bold">{city.name}</h4>
-                    <p>서울의 {city.direction}에 위치</p>
-                    <div 
-                      className="w-4 h-4 inline-block rounded-full mr-2 border border-gray-300"
-                      style={{ 
-                        backgroundColor: isTransparent ? 'transparent' : city.color,
-                        borderColor: city.color || '#1E90FF'
-                      }}
-                    ></div>
-                    {city.color === '#FFB6C1' ? '분홍색 표시' : 
-                     isTransparent ? '파란색 테두리 (경기도)' : '하늘색 표시'}
-                    <br />
+                    <h4 className="font-bold text-blue-600">{marker.title}</h4>
+                    <p>{marker.description}</p>
                     <small className="text-gray-500">교사 예시 마커</small>
                   </div>
                 </Popup>
-              </CircleMarker>
-            );
-          })}
-
-          {/* 사용자가 추가한 마커들 (학생 활동) */}
-          {markers.map((marker) => (
-            // Only render markers if they have a valid position
-            marker.position && marker.position.length === 2 && (
-              <Marker 
-                key={marker.id} 
-                position={marker.position}
-                icon={marker.color ? createClassMarkerIcon(marker.color) : undefined}
-              >
-                <Popup ref={markerPopupRef} minWidth={300}>
-                  {editingMarkerId === marker.id ? (
-                    <div>
-                      <div className="mb-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          마커 설명 수정
-                        </label>
-                        <textarea
-                          value={currentDescription}
-                          onChange={handleDescriptionChange}
-                          onClick={(e) => e.stopPropagation()}
-                          className="border px-2 py-1 w-full mb-1 h-20 resize-none rounded"
-                          placeholder="서울은 ___의 ___쪽에 있습니다"
-                          autoFocus
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <button 
-                          onClick={(e) => { 
-                            e.stopPropagation(); 
-                            handleSaveDescription(marker.id); 
-                          }}
-                          className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600"
-                        >저장</button>
-                        <button 
-                          onClick={(e) => { 
-                            e.stopPropagation(); 
-                            handleCancelEdit(); 
-                          }}
-                          className="bg-gray-400 text-white px-3 py-1 rounded text-sm hover:bg-gray-500"
-                        >취소</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      {/* 마커 제목 (추가) */}
-                      {marker.title && marker.title !== marker.description && (
-                        <div className="mb-2">
-                          <h4 className="font-bold text-gray-800">{marker.title}</h4>
-                        </div>
-                      )}
-                      
-                      {/* 마커 설명 */}
-                      <div className="mb-3 p-2 bg-gray-50 border border-gray-200 rounded">
-                        <p className="text-sm font-medium text-gray-700">{marker.description}</p>
-                      </div>
-                      
-                      {/* 추가 콘텐츠 (추후 확장) */}
-                      {marker.content && (
-                        <div className="mb-3 p-2 border border-gray-200 rounded">
-                          <p className="text-sm text-gray-600">{marker.content}</p>
-                        </div>
-                      )}
-                      
-                      {/* 이미지 갤러리 (추후 확장) */}
-                      {marker.images && marker.images.length > 0 && (
-                        <div className="mb-3">
-                          <div className="text-xs text-gray-500 mb-1">첨부 이미지 ({marker.images.length}개)</div>
-                          <div className="grid grid-cols-2 gap-1">
-                            {marker.images.slice(0, 4).map((imageUrl, index) => (
-                              <div key={index} className="w-full h-16 bg-gray-200 rounded border flex items-center justify-center">
-                                <span className="text-xs text-gray-500">이미지</span>
-                              </div>
-                            ))}
-                            {marker.images.length > 4 && (
-                              <div className="w-full h-16 bg-gray-100 rounded border flex items-center justify-center">
-                                <span className="text-xs text-gray-500">+{marker.images.length - 4}개 더</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* 마커 상세 정보 */}
-                      <div className="text-xs text-gray-500 mb-3 space-y-1">
-                        <div className="flex items-center">
-                          <div 
-                            className="w-3 h-3 rounded-full mr-1 border border-gray-300"
-                            style={{ backgroundColor: marker.color || DEFAULT_COLOR }}
-                          ></div>
-                          <span>{marker.classId} - {marker.userName || marker.userId}</span>
-                        </div>
-                        
-                        <div>생성: {new Date(marker.createdAt).toLocaleString('ko-KR')}</div>
-                        
-                        {marker.updatedAt && marker.updatedAt !== marker.createdAt && (
-                          <div>수정: {new Date(marker.updatedAt).toLocaleString('ko-KR')}</div>
-                        )}
-                        
-                        {marker.isEdited && marker.lastEditedByName && (
-                          <div className="text-orange-600">
-                            교사 수정: {marker.lastEditedByName}
-                          </div>
-                        )}
-                        
-                        {/* 댓글 수 표시 (추후 확장) */}
-                        {marker.commentCount > 0 && (
-                          <div className="flex items-center text-blue-600">
-                            <span>💬 댓글 {marker.commentCount}개</span>
-                          </div>
-                        )}
-                        
-                        {/* 좋아요 수 표시 (추후 확장) */}
-                        {marker.likes > 0 && (
-                          <div className="flex items-center text-red-500">
-                            <span>❤️ {marker.likes}개</span>
-                          </div>
-                        )}
-                      </div>
-                      
-                      {/* 액션 버튼들 */}
-                      <div className="flex gap-1 flex-wrap">
-                        {/* 수정/삭제 버튼 (작성자 또는 교사) */}
-                        {(currentUser && (marker.userId === currentUser.uid || isTeacher())) && (
-                          <>
-                            <button 
-                              onClick={(e) => { 
-                                e.stopPropagation(); 
-                                handleEditClick(marker); 
-                              }}
-                              className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600"
-                            >수정</button>
-                            <button 
-                              onClick={(e) => { 
-                                e.stopPropagation(); 
-                                handleMarkerDelete(marker.id); 
-                              }}
-                              className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600"
-                            >삭제</button>
-                          </>
-                        )}
-                        
-                        {/* 추후 확장 버튼들 */}
-                        <button 
-                          onClick={(e) => e.stopPropagation()}
-                          className="bg-gray-300 text-gray-700 px-2 py-1 rounded text-xs hover:bg-gray-400"
-                          disabled
-                        >📷 사진</button>
-                        <button 
-                          onClick={(e) => e.stopPropagation()}
-                          className="bg-gray-300 text-gray-700 px-2 py-1 rounded text-xs hover:bg-gray-400"
-                          disabled
-                        >💬 댓글</button>
-                        <button 
-                          onClick={(e) => e.stopPropagation()}
-                          className="bg-gray-300 text-gray-700 px-2 py-1 rounded text-xs hover:bg-gray-400"
-                          disabled
-                        >❤️ 좋아요</button>
-                      </div>
-                    </div>
-                  )}
-                </Popup>
               </Marker>
-            )
-          ))}
+            ))}
 
-          {/* 레슨 1에서 행정구역 경계 표시 */}
-          {lessonId === '1' && (
-            <>
-              {/* 서울시 경계 */}
-              <Polygon
-                positions={ADMINISTRATIVE_BOUNDARIES.seoul.coordinates}
-                pathOptions={ADMINISTRATIVE_BOUNDARIES.seoul.style}
-              >
-                <Popup>
-                  <div className="text-center">
-                    <h3 className="font-bold text-red-600">{ADMINISTRATIVE_BOUNDARIES.seoul.name}</h3>
-                    <p className="text-sm text-gray-600">대한민국의 수도</p>
-                    <p className="text-xs text-gray-500">빨간색 경계로 표시</p>
-                  </div>
-                </Popup>
-              </Polygon>
-            </>
-          )}
+            {/* 주변 도시 마커들 (교사 예시) */}
+            {lessonData?.surroundingCities?.map((city) => {
+              const isTransparent = city.fillColor === 'transparent';
+              return (
+                <CircleMarker 
+                  key={`city-${city.name}`} 
+                  center={[city.position.lat, city.position.lng]}
+                  radius={15}
+                  pathOptions={{
+                    color: city.color || '#1E90FF',
+                    fillColor: isTransparent ? 'transparent' : (city.color === '#FFB6C1' ? '#FFB6C1' : '#87CEEB'),
+                    fillOpacity: isTransparent ? 0 : 0.8,
+                    weight: 3
+                  }}
+                >
+                  <Popup>
+                    <div>
+                      <h4 className="font-bold">{city.name}</h4>
+                      <p>서울의 {city.direction}에 위치</p>
+                      <div 
+                        className="w-4 h-4 inline-block rounded-full mr-2 border border-gray-300"
+                        style={{ 
+                          backgroundColor: isTransparent ? 'transparent' : city.color,
+                          borderColor: city.color || '#1E90FF'
+                        }}
+                      ></div>
+                      {city.color === '#FFB6C1' ? '분홍색 표시' : 
+                       isTransparent ? '파란색 테두리 (경기도)' : '하늘색 표시'}
+                      <br />
+                      <small className="text-gray-500">교사 예시 마커</small>
+                    </div>
+                  </Popup>
+                </CircleMarker>
+              );
+            })}
+
+            {/* 사용자가 추가한 마커들 (학생 활동) */}
+            {markers.map((marker) => (
+              marker.position && marker.position.length === 2 && (
+                <Marker 
+                  key={marker.id} 
+                  position={marker.position}
+                  icon={marker.color ? createClassMarkerIcon(marker.color) : undefined}
+                >
+                  <Popup ref={markerPopupRef} minWidth={320} maxWidth={400}>
+                    <StudentResearchPopup
+                      marker={marker}
+                      isEditing={editingMarkerId === marker.id}
+                      onEdit={handleEditClick}
+                      onSave={handleSaveMarkerWithData}
+                      onCancel={handleCancelEdit}
+                      onDelete={handleMarkerDelete}
+                      currentUser={currentUser}
+                      isTeacher={isTeacher}
+                    />
+                  </Popup>
+                </Marker>
+              )
+            ))}
+
+            {/* 레슨 1에서 행정구역 경계 표시 */}
+            {lessonId === '1' && (
+              <>
+                {/* 서울시 경계 */}
+                <Polygon
+                  positions={ADMINISTRATIVE_BOUNDARIES.seoul.coordinates}
+                  pathOptions={ADMINISTRATIVE_BOUNDARIES.seoul.style}
+                >
+                  <Popup>
+                    <div className="text-center">
+                      <h3 className="font-bold text-red-600">{ADMINISTRATIVE_BOUNDARIES.seoul.name}</h3>
+                      <p className="text-sm text-gray-600">대한민국의 수도</p>
+                      <p className="text-xs text-gray-500">빨간색 경계로 표시</p>
+                    </div>
+                  </Popup>
+                </Polygon>
+              </>
+            )}
+          </MapEventHandler>
         </MapContainer>
+        
+        {/* 커스텀 지도 컨트롤 */}
+        <MapControls map={mapInstance} lessonConfig={lessonConfig} />
       </div>
     </div>
   );
