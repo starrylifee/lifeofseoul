@@ -1837,24 +1837,58 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
             {/* 레슨 데이터의 초기 도형들 (교사 예시) */}
             {lessonData?.initialShapes?.map((shape) => {
               if (shape.type === 'polyline') {
+                // 폴리라인의 중간 지점 계산
+                const midIndex = Math.floor(shape.positions.length / 2);
+                const midPosition = shape.positions[midIndex];
+                
                 return (
-                  <Polyline
-                    key={`initial-shape-${shape.id}`}
-                    positions={shape.positions.map(pos => [pos.lat, pos.lng])}
-                    pathOptions={{
-                      color: shape.color || '#dc2626',
-                      weight: shape.weight || 3,
-                      opacity: 0.8
-                    }}
-                  >
-                    <Popup>
-                      <div>
-                        <h4 className="font-bold text-purple-600">{shape.title}</h4>
-                        <p>{shape.description}</p>
-                        <small className="text-gray-500">교사 예시 도형</small>
-                      </div>
-                    </Popup>
-                  </Polyline>
+                  <React.Fragment key={`initial-shape-${shape.id}`}>
+                    <Polyline
+                      positions={shape.positions.map(pos => [pos.lat, pos.lng])}
+                      pathOptions={{
+                        color: shape.color || '#dc2626',
+                        weight: shape.weight || 3,
+                        opacity: 0.8
+                      }}
+                    >
+                      <Popup>
+                        <div>
+                          <h4 className="font-bold text-purple-600">{shape.title}</h4>
+                          <p>{shape.description}</p>
+                          <small className="text-gray-500">교사 예시 도형</small>
+                        </div>
+                      </Popup>
+                    </Polyline>
+                    
+                    {/* 폴리라인 중간에 라벨 마커 추가 */}
+                    <Marker
+                      position={[midPosition.lat, midPosition.lng]}
+                      icon={new L.DivIcon({
+                        html: `<div style="
+                          background: ${shape.color || '#dc2626'}; 
+                          color: white; 
+                          padding: 2px 6px; 
+                          border-radius: 4px; 
+                          font-size: 10px; 
+                          font-weight: bold; 
+                          white-space: nowrap;
+                          border: 1px solid white;
+                          box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+                        ">${shape.title}</div>`,
+                        className: 'polyline-label',
+                        iconSize: [0, 0],
+                        iconAnchor: [0, 0]
+                      })}
+                    >
+                      <Popup>
+                        <div>
+                          <h4 className="font-bold text-purple-600">{shape.title}</h4>
+                          <p>{shape.description}</p>
+                          <small className="text-gray-500">교사 예시 도형</small>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  </React.Fragment>
                 );
               } else if (shape.type === 'polygon') {
                 return (
