@@ -37,7 +37,7 @@ function App() {
               element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
             />
             <Route 
-              path="/classroom/:classId"
+              path="/classroom"
               element={<ProtectedRoute><Classroom /></ProtectedRoute>}
             />
             <Route 
@@ -47,6 +47,22 @@ function App() {
             <Route 
               path="/share"
               element={<ProtectedRoute><ShareView /></ProtectedRoute>}
+            />
+            <Route 
+              path="/progress"
+              element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
+            />
+            <Route 
+              path="/explore"
+              element={<ProtectedRoute><LessonPage lessonId="1" /></ProtectedRoute>}
+            />
+            <Route 
+              path="/help"
+              element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
+            />
+            <Route 
+              path="/settings"
+              element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
             />
             
             {/* Fallback or Not Found Route */}

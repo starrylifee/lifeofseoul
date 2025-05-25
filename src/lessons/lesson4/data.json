@@ -1,4 +1,133 @@
 {
-  "initialMarkers": [],
-  "initialShapes": []
+  "initialMarkers": [
+    {
+      "id": "seoul_station",
+      "position": { "lat": 37.5547, "lng": 126.9706 },
+      "title": "서울역",
+      "description": "KTX, 일반열차, 지하철의 중심",
+      "color": "#dc2626",
+      "size": "large"
+    },
+    {
+      "id": "yongsan_station",
+      "position": { "lat": 37.5299, "lng": 126.9647 },
+      "title": "용산역",
+      "description": "KTX, 일반열차 주요 역",
+      "color": "#dc2626",
+      "size": "large"
+    },
+    {
+      "id": "cheongnyangni_station",
+      "position": { "lat": 37.5800, "lng": 127.0472 },
+      "title": "청량리역",
+      "description": "경춘선, 중앙선의 시발역",
+      "color": "#dc2626",
+      "size": "medium"
+    },
+    {
+      "id": "incheon_airport",
+      "position": { "lat": 37.4602, "lng": 126.4407 },
+      "title": "인천국제공항",
+      "description": "국제선 중심 공항",
+      "color": "#2563eb",
+      "size": "large"
+    },
+    {
+      "id": "gimpo_airport",
+      "position": { "lat": 37.5583, "lng": 126.7906 },
+      "title": "김포공항",
+      "description": "국내선 중심 공항",
+      "color": "#2563eb",
+      "size": "medium"
+    },
+    {
+      "id": "express_bus_terminal",
+      "position": { "lat": 37.5048, "lng": 127.0051 },
+      "title": "고속버스터미널",
+      "description": "전국 고속버스 중심지",
+      "color": "#059669",
+      "size": "large"
+    },
+    {
+      "id": "dong_seoul_terminal",
+      "position": { "lat": 37.5320, "lng": 127.1025 },
+      "title": "동서울터미널",
+      "description": "동부지역 버스터미널",
+      "color": "#059669",
+      "size": "medium"
+    },
+    {
+      "id": "nambu_terminal",
+      "position": { "lat": 37.4763, "lng": 126.9831 },
+      "title": "남부터미널",
+      "description": "남부지역 버스터미널",
+      "color": "#059669",
+      "size": "medium"
+    },
+    {
+      "id": "sangbong_terminal",
+      "position": { "lat": 37.5967, "lng": 127.0897 },
+      "title": "상봉터미널",
+      "description": "북부지역 버스터미널",
+      "color": "#059669",
+      "size": "medium"
+    }
+  ],
+  "initialShapes": [
+    {
+      "id": "ktx_line",
+      "type": "polyline",
+      "positions": [
+        { "lat": 37.5547, "lng": 126.9706 },
+        { "lat": 37.5299, "lng": 126.9647 },
+        { "lat": 37.4500, "lng": 126.9500 }
+      ],
+      "color": "#dc2626",
+      "weight": 6,
+      "title": "KTX 노선",
+      "description": "서울역-용산역을 거쳐 전국으로"
+    },
+    {
+      "id": "airport_railroad",
+      "type": "polyline",
+      "positions": [
+        { "lat": 37.5547, "lng": 126.9706 },
+        { "lat": 37.5571, "lng": 126.9245 },
+        { "lat": 37.5583, "lng": 126.7906 },
+        { "lat": 37.4602, "lng": 126.4407 }
+      ],
+      "color": "#2563eb",
+      "weight": 5,
+      "title": "공항철도",
+      "description": "서울역-김포공항-인천공항"
+    },
+    {
+      "id": "gyeongbu_line",
+      "type": "polyline",
+      "positions": [
+        { "lat": 37.5800, "lng": 127.0472 },
+        { "lat": 37.5547, "lng": 126.9706 },
+        { "lat": 37.5299, "lng": 126.9647 }
+      ],
+      "color": "#f59e0b",
+      "weight": 4,
+      "title": "경부선",
+      "description": "청량리-서울-용산을 잇는 철도"
+    },
+    {
+      "id": "bus_network",
+      "type": "polyline",
+      "positions": [
+        { "lat": 37.5048, "lng": 127.0051 },
+        { "lat": 37.5320, "lng": 127.1025 },
+        { "lat": 37.5967, "lng": 127.0897 },
+        { "lat": 37.4763, "lng": 126.9831 },
+        { "lat": 37.5048, "lng": 127.0051 }
+      ],
+      "color": "#059669",
+      "weight": 3,
+      "title": "버스터미널 네트워크",
+      "description": "서울의 주요 버스터미널들"
+    }
+  ]
 } 

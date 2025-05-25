@@ -26,50 +26,226 @@
     {
       "name": "양주시",
       "position": { "lat": 37.8267, "lng": 127.0465 },
-      "color": "#FFB6C1",
+      "color": "#4169E1",
+      "fillColor": "transparent",
       "direction": "북쪽"
     },
     {
       "name": "하남시", 
       "position": { "lat": 37.5394, "lng": 127.2147 },
-      "color": "#FFB6C1",
+      "color": "#4169E1",
+      "fillColor": "transparent",
       "direction": "동쪽"
     },
     {
       "name": "과천시",
       "position": { "lat": 37.4292, "lng": 126.9877 },
-      "color": "#FFB6C1", 
+      "color": "#4169E1",
+      "fillColor": "transparent",
       "direction": "남쪽"
     },
     {
       "name": "인천광역시",
       "position": { "lat": 37.4563, "lng": 126.7052 },
-      "color": "#FFB6C1",
+      "color": "#4169E1",
+      "fillColor": "transparent",
       "direction": "서쪽"
     },
     {
       "name": "고양시",
       "position": { "lat": 37.6584, "lng": 126.8320 },
-      "color": "#87CEEB",
+      "color": "#4169E1",
+      "fillColor": "transparent",
       "direction": "북서쪽"
     },
     {
       "name": "성남시",
       "position": { "lat": 37.4201, "lng": 127.1262 },
-      "color": "#87CEEB",
+      "color": "#4169E1",
+      "fillColor": "transparent",
       "direction": "남동쪽"
     },
     {
       "name": "시흥시", 
       "position": { "lat": 37.3804, "lng": 126.8028 },
-      "color": "#87CEEB",
+      "color": "#4169E1",
+      "fillColor": "transparent",
       "direction": "남서쪽"
     },
     {
       "name": "남양주시",
       "position": { "lat": 37.6364, "lng": 127.2168 },
-      "color": "#87CEEB", 
+      "color": "#4169E1",
+      "fillColor": "transparent",
       "direction": "동북쪽"
+    },
+    {
+      "name": "광명시",
+      "position": { "lat": 37.4786, "lng": 126.8644 },
+      "color": "#4169E1",
+      "fillColor": "transparent",
+      "direction": "남서쪽"
+    },
+    {
+      "name": "광주시",
+      "position": { "lat": 37.4297, "lng": 127.2550 },
+      "color": "#4169E1",
+      "fillColor": "transparent",
+      "direction": "동남쪽"
+    },
+    {
+      "name": "구리시",
+      "position": { "lat": 37.5943, "lng": 127.1296 },
+      "color": "#4169E1",
+      "fillColor": "transparent",
+      "direction": "동쪽"
+    },
+    {
+      "name": "군포시",
+      "position": { "lat": 37.3617, "lng": 126.9353 },
+      "color": "#4169E1",
+      "fillColor": "transparent",
+      "direction": "남쪽"
+    },
+    {
+      "name": "김포시",
+      "position": { "lat": 37.6152, "lng": 126.7156 },
+      "color": "#4169E1",
+      "fillColor": "transparent",
+      "direction": "서북쪽"
+    },
+    {
+      "name": "동두천시",
+      "position": { "lat": 37.9036, "lng": 127.0606 },
+      "color": "#4169E1",
+      "fillColor": "transparent",
+      "direction": "북쪽"
+    },
+    {
+      "name": "부천시",
+      "position": { "lat": 37.5035, "lng": 126.7660 },
+      "color": "#4169E1",
+      "fillColor": "transparent",
+      "direction": "서쪽"
+    },
+    {
+      "name": "수원시",
+      "position": { "lat": 37.2636, "lng": 127.0286 },
+      "color": "#4169E1",
+      "fillColor": "transparent",
+      "direction": "남쪽"
+    },
+    {
+      "name": "안산시",
+      "position": { "lat": 37.3219, "lng": 126.8309 },
+      "color": "#4169E1",
+      "fillColor": "transparent",
+      "direction": "남서쪽"
+    },
+    {
+      "name": "안성시",
+      "position": { "lat": 37.0078, "lng": 127.2797 },
+      "color": "#4169E1",
+      "fillColor": "transparent",
+      "direction": "남동쪽"
+    },
+    {
+      "name": "안양시",
+      "position": { "lat": 37.3943, "lng": 126.9568 },
+      "color": "#4169E1",
+      "fillColor": "transparent",
+      "direction": "남쪽"
+    },
+    {
+      "name": "여주시",
+      "position": { "lat": 37.2982, "lng": 127.6372 },
+      "color": "#4169E1",
+      "fillColor": "transparent",
+      "direction": "동남쪽"
+    },
+    {
+      "name": "오산시",
+      "position": { "lat": 37.1499, "lng": 127.0773 },
+      "color": "#4169E1",
+      "fillColor": "transparent",
+      "direction": "남쪽"
+    },
+    {
+      "name": "용인시",
+      "position": { "lat": 37.2411, "lng": 127.1776 },
+      "color": "#4169E1",
+      "fillColor": "transparent",
+      "direction": "남동쪽"
+    },
+    {
+      "name": "의왕시",
+      "position": { "lat": 37.3448, "lng": 126.9683 },
+      "color": "#4169E1",
+      "fillColor": "transparent",
+      "direction": "남쪽"
+    },
+    {
+      "name": "의정부시",
+      "position": { "lat": 37.7381, "lng": 127.0338 },
+      "color": "#4169E1",
+      "fillColor": "transparent",
+      "direction": "북쪽"
+    },
+    {
+      "name": "이천시",
+      "position": { "lat": 37.2720, "lng": 127.4349 },
+      "color": "#4169E1",
+      "fillColor": "transparent",
+      "direction": "동남쪽"
+    },
+    {
+      "name": "파주시",
+      "position": { "lat": 37.7598, "lng": 126.7800 },
+      "color": "#4169E1",
+      "fillColor": "transparent",
+      "direction": "북서쪽"
+    },
+    {
+      "name": "평택시",
+      "position": { "lat": 36.9921, "lng": 127.1127 },
+      "color": "#4169E1",
+      "fillColor": "transparent",
+      "direction": "남쪽"
+    },
+    {
+      "name": "포천시",
+      "position": { "lat": 37.8949, "lng": 127.2004 },
+      "color": "#4169E1",
+      "fillColor": "transparent",
+      "direction": "북동쪽"
+    },
+    {
+      "name": "화성시",
+      "position": { "lat": 37.1997, "lng": 126.8312 },
+      "color": "#4169E1",
+      "fillColor": "transparent",
+      "direction": "남서쪽"
+    },
+    {
+      "name": "가평군",
+      "position": { "lat": 37.8314, "lng": 127.5109 },
+      "color": "#4169E1",
+      "fillColor": "transparent",
+      "direction": "동북쪽"
+    },
+    {
+      "name": "양평군",
+      "position": { "lat": 37.4914, "lng": 127.4874 },
+      "color": "#4169E1",
+      "fillColor": "transparent",
+      "direction": "동쪽"
+    },
+    {
+      "name": "연천군",
+      "position": { "lat": 38.0963, "lng": 127.0748 },
+      "color": "#4169E1",
+      "fillColor": "transparent",
+      "direction": "북쪽"
     }
   ]
 } 

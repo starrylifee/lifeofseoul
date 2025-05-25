@@ -1,4 +1,144 @@
 {
-  "initialMarkers": [],
-  "initialShapes": []
+  "initialMarkers": [
+    {
+      "id": "sungnyemun_gate",
+      "position": { "lat": 37.5597, "lng": 126.9753 },
+      "title": "숭례문 (남대문)",
+      "description": "국보 제1호, 한양도성 남쪽 문",
+      "color": "#dc2626",
+      "size": "large"
+    },
+    {
+      "id": "heunginjimun_gate",
+      "position": { "lat": 37.5711, "lng": 127.0094 },
+      "title": "흥인지문 (동대문)",
+      "description": "보물 제1호, 한양도성 동쪽 문",
+      "color": "#2563eb",
+      "size": "large"
+    },
+    {
+      "id": "donuimun_gate",
+      "position": { "lat": 37.5714, "lng": 126.9658 },
+      "title": "돈의문 (서대문)",
+      "description": "복원된 서쪽 문, 현재 돈의문박물관",
+      "color": "#059669",
+      "size": "large"
+    },
+    {
+      "id": "sukjeongmun_gate",
+      "position": { "lat": 37.5928, "lng": 126.9811 },
+      "title": "숙정문 (북대문)",
+      "description": "한양도성 북쪽 문",
+      "color": "#f59e0b",
+      "size": "large"
+    },
+    {
+      "id": "changuimun_gate",
+      "position": { "lat": 37.5889, "lng": 126.9667 },
+      "title": "창의문 (자하문)",
+      "description": "소사문, 인왕산 자락",
+      "color": "#7c3aed",
+      "size": "medium"
+    },
+    {
+      "id": "hyehwamun_gate",
+      "position": { "lat": 37.5889, "lng": 127.0028 },
+      "title": "혜화문",
+      "description": "소사문, 동북쪽 문",
+      "color": "#7c3aed",
+      "size": "medium"
+    },
+    {
+      "id": "gwanghuimun_gate",
+      "position": { "lat": 37.5597, "lng": 127.0167 },
+      "title": "광희문",
+      "description": "소사문, 동남쪽 문",
+      "color": "#7c3aed",
+      "size": "medium"
+    },
+    {
+      "id": "namsan_tower",
+      "position": { "lat": 37.5512, "lng": 126.9882 },
+      "title": "N서울타워",
+      "description": "남산 정상, 성곽 구간",
+      "color": "#f59e0b",
+      "size": "small"
+    }
+  ],
+  "initialShapes": [
+    {
+      "id": "hanyang_fortress_wall",
+      "type": "polyline",
+      "positions": [
+        { "lat": 37.5597, "lng": 126.9753 },
+        { "lat": 37.5450, "lng": 126.9800 },
+        { "lat": 37.5400, "lng": 126.9900 },
+        { "lat": 37.5450, "lng": 127.0000 },
+        { "lat": 37.5500, "lng": 127.0100 },
+        { "lat": 37.5597, "lng": 127.0167 },
+        { "lat": 37.5650, "lng": 127.0150 },
+        { "lat": 37.5711, "lng": 127.0094 },
+        { "lat": 37.5800, "lng": 127.0050 },
+        { "lat": 37.5850, "lng": 127.0000 },
+        { "lat": 37.5889, "lng": 127.0028 },
+        { "lat": 37.5920, "lng": 126.9950 },
+        { "lat": 37.5928, "lng": 126.9811 },
+        { "lat": 37.5920, "lng": 126.9750 },
+        { "lat": 37.5889, "lng": 126.9667 },
+        { "lat": 37.5850, "lng": 126.9650 },
+        { "lat": 37.5800, "lng": 126.9650 },
+        { "lat": 37.5714, "lng": 126.9658 },
+        { "lat": 37.5650, "lng": 126.9700 },
+        { "lat": 37.5597, "lng": 126.9753 }
+      ],
+      "color": "#8b5cf6",
+      "weight": 5,
+      "title": "한양도성 성곽",
+      "description": "조선시대 한양을 둘러싼 성곽 (총 18.6km)"
+    },
+    {
+      "id": "namsan_section",
+      "type": "polyline",
+      "positions": [
+        { "lat": 37.5597, "lng": 126.9753 },
+        { "lat": 37.5550, "lng": 126.9800 },
+        { "lat": 37.5512, "lng": 126.9882 },
+        { "lat": 37.5480, "lng": 126.9950 },
+        { "lat": 37.5450, "lng": 127.0000 }
+      ],
+      "color": "#dc2626",
+      "weight": 6,
+      "title": "남산 성곽구간",
+      "description": "가장 잘 보존된 성곽 구간"
+    },
+    {
+      "id": "naksan_section",
+      "type": "polyline",
+      "positions": [
+        { "lat": 37.5711, "lng": 127.0094 },
+        { "lat": 37.5750, "lng": 127.0050 },
+        { "lat": 37.5800, "lng": 127.0000 },
+        { "lat": 37.5850, "lng": 126.9950 },
+        { "lat": 37.5889, "lng": 127.0028 }
+      ],
+      "color": "#2563eb",
+      "weight": 6,
+      "title": "낙산 성곽구간",
+      "description": "동쪽 산릉을 따라 이어진 성곽"
+    },
+    {
+      "id": "inwangsan_section",
+      "type": "polyline",
+      "positions": [
+        { "lat": 37.5714, "lng": 126.9658 },
+        { "lat": 37.5800, "lng": 126.9650 },
+        { "lat": 37.5850, "lng": 126.9650 },
+        { "lat": 37.5889, "lng": 126.9667 }
+      ],
+      "color": "#059669",
+      "weight": 6,
+      "title": "인왕산 성곽구간",
+      "description": "서쪽 인왕산을 따라 이어진 성곽"
+    }
+  ]
 } 

@@ -1,4 +1,142 @@
 {
-  "initialMarkers": [],
-  "initialShapes": []
+  "initialMarkers": [
+    {
+      "id": "seoul_city_hall",
+      "position": { "lat": 37.5663, "lng": 126.9779 },
+      "title": "서울특별시청",
+      "description": "서울시 행정의 중심",
+      "color": "#dc2626",
+      "size": "large"
+    },
+    {
+      "id": "national_assembly",
+      "position": { "lat": 37.5323, "lng": 126.9147 },
+      "title": "국회의사당",
+      "description": "대한민국 국회",
+      "color": "#2563eb",
+      "size": "large"
+    },
+    {
+      "id": "supreme_court",
+      "position": { "lat": 37.4767, "lng": 127.0442 },
+      "title": "대법원",
+      "description": "대한민국 최고법원",
+      "color": "#7c3aed",
+      "size": "large"
+    },
+    {
+      "id": "government_complex",
+      "position": { "lat": 37.5658, "lng": 126.9751 },
+      "title": "정부서울청사",
+      "description": "중앙정부 기관들",
+      "color": "#2563eb",
+      "size": "large"
+    },
+    {
+      "id": "seoul_education_office",
+      "position": { "lat": 37.5714, "lng": 126.9658 },
+      "title": "서울시교육청",
+      "description": "서울시 교육행정 중심",
+      "color": "#059669",
+      "size": "medium"
+    },
+    {
+      "id": "seoul_police_agency",
+      "position": { "lat": 37.5658, "lng": 126.9751 },
+      "title": "서울지방경찰청",
+      "description": "서울시 치안 담당",
+      "color": "#f59e0b",
+      "size": "medium"
+    },
+    {
+      "id": "seoul_prosecutors_office",
+      "position": { "lat": 37.4767, "lng": 127.0442 },
+      "title": "서울중앙지방검찰청",
+      "description": "검찰 업무 담당",
+      "color": "#7c3aed",
+      "size": "medium"
+    },
+    {
+      "id": "blue_house",
+      "position": { "lat": 37.5867, "lng": 126.9750 },
+      "title": "청와대 (구 대통령 관저)",
+      "description": "현재는 국민에게 개방",
+      "color": "#2563eb",
+      "size": "medium"
+    },
+    {
+      "id": "yongsan_presidential_office",
+      "position": { "lat": 37.5326, "lng": 126.9903 },
+      "title": "용산 대통령실",
+      "description": "현재 대통령 집무실",
+      "color": "#2563eb",
+      "size": "medium"
+    },
+    {
+      "id": "gangnam_gu_office",
+      "position": { "lat": 37.5172, "lng": 127.0473 },
+      "title": "강남구청",
+      "description": "강남구 행정 중심",
+      "color": "#dc2626",
+      "size": "small"
+    },
+    {
+      "id": "jongno_gu_office",
+      "position": { "lat": 37.5735, "lng": 126.9788 },
+      "title": "종로구청",
+      "description": "종로구 행정 중심",
+      "color": "#dc2626",
+      "size": "small"
+    }
+  ],
+  "initialShapes": [
+    {
+      "id": "administrative_center",
+      "type": "polygon",
+      "positions": [
+        { "lat": 37.5800, "lng": 126.9600 },
+        { "lat": 37.5800, "lng": 126.9900 },
+        { "lat": 37.5500, "lng": 126.9900 },
+        { "lat": 37.5500, "lng": 126.9600 },
+        { "lat": 37.5800, "lng": 126.9600 }
+      ],
+      "color": "#dc2626",
+      "fillColor": "#fecaca",
+      "fillOpacity": 0.3,
+      "title": "중앙행정구역",
+      "description": "시청, 정부청사 등이 밀집된 지역"
+    },
+    {
+      "id": "yeouido_political_center",
+      "type": "polygon",
+      "positions": [
+        { "lat": 37.5400, "lng": 126.9000 },
+        { "lat": 37.5400, "lng": 126.9300 },
+        { "lat": 37.5200, "lng": 126.9300 },
+        { "lat": 37.5200, "lng": 126.9000 },
+        { "lat": 37.5400, "lng": 126.9000 }
+      ],
+      "color": "#2563eb",
+      "fillColor": "#bfdbfe",
+      "fillOpacity": 0.3,
+      "title": "여의도 정치구역",
+      "description": "국회의사당이 위치한 정치 중심지"
+    },
+    {
+      "id": "seocho_judicial_center",
+      "type": "polygon",
+      "positions": [
+        { "lat": 37.4900, "lng": 127.0300 },
+        { "lat": 37.4900, "lng": 127.0600 },
+        { "lat": 37.4600, "lng": 127.0600 },
+        { "lat": 37.4600, "lng": 127.0300 },
+        { "lat": 37.4900, "lng": 127.0300 }
+      ],
+      "color": "#7c3aed",
+      "fillColor": "#ddd6fe",
+      "fillOpacity": 0.3,
+      "title": "서초 사법구역",
+      "description": "대법원, 검찰청 등 사법기관 밀집"
+    }
+  ]
 } 

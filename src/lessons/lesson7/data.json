@@ -1,4 +1,127 @@
 {
-  "initialMarkers": [],
-  "initialShapes": []
+  "initialMarkers": [
+    {
+      "id": "gyeongbokgung_palace",
+      "position": { "lat": 37.5796, "lng": 126.9770 },
+      "title": "경복궁",
+      "description": "조선시대 정궁, 1395년 건립",
+      "color": "#dc2626",
+      "size": "large"
+    },
+    {
+      "id": "changdeokgung_palace",
+      "position": { "lat": 37.5794, "lng": 126.9910 },
+      "title": "창덕궁",
+      "description": "유네스코 세계문화유산, 1405년 건립",
+      "color": "#2563eb",
+      "size": "large"
+    },
+    {
+      "id": "changgyeonggung_palace",
+      "position": { "lat": 37.5792, "lng": 126.9950 },
+      "title": "창경궁",
+      "description": "1484년 건립, 창덕궁과 연결",
+      "color": "#059669",
+      "size": "large"
+    },
+    {
+      "id": "deoksugung_palace",
+      "position": { "lat": 37.5658, "lng": 126.9751 },
+      "title": "덕수궁",
+      "description": "대한제국 황궁, 서양식 건물 포함",
+      "color": "#f59e0b",
+      "size": "large"
+    },
+    {
+      "id": "gyeonghuigung_palace",
+      "position": { "lat": 37.5714, "lng": 126.9658 },
+      "title": "경희궁",
+      "description": "1617년 건립, 현재 복원 중",
+      "color": "#7c3aed",
+      "size": "medium"
+    },
+    {
+      "id": "gwanghwamun_gate",
+      "position": { "lat": 37.5759, "lng": 126.9769 },
+      "title": "광화문",
+      "description": "경복궁 정문",
+      "color": "#dc2626",
+      "size": "small"
+    },
+    {
+      "id": "donhwamun_gate",
+      "position": { "lat": 37.5803, "lng": 126.9891 },
+      "title": "돈화문",
+      "description": "창덕궁 정문",
+      "color": "#2563eb",
+      "size": "small"
+    },
+    {
+      "id": "daehanmun_gate",
+      "position": { "lat": 37.5648, "lng": 126.9741 },
+      "title": "대한문",
+      "description": "덕수궁 정문",
+      "color": "#f59e0b",
+      "size": "small"
+    }
+  ],
+  "initialShapes": [
+    {
+      "id": "palace_complex_north",
+      "type": "polygon",
+      "positions": [
+        { "lat": 37.5850, "lng": 126.9700 },
+        { "lat": 37.5850, "lng": 127.0000 },
+        { "lat": 37.5750, "lng": 127.0000 },
+        { "lat": 37.5750, "lng": 126.9700 },
+        { "lat": 37.5850, "lng": 126.9700 }
+      ],
+      "color": "#dc2626",
+      "fillColor": "#fecaca",
+      "fillOpacity": 0.2,
+      "title": "북부 궁궐 지역",
+      "description": "경복궁, 창덕궁, 창경궁이 위치한 지역"
+    },
+    {
+      "id": "palace_complex_central",
+      "type": "polygon",
+      "positions": [
+        { "lat": 37.5750, "lng": 126.9600 },
+        { "lat": 37.5750, "lng": 126.9800 },
+        { "lat": 37.5600, "lng": 126.9800 },
+        { "lat": 37.5600, "lng": 126.9600 },
+        { "lat": 37.5750, "lng": 126.9600 }
+      ],
+      "color": "#f59e0b",
+      "fillColor": "#fed7aa",
+      "fillOpacity": 0.2,
+      "title": "중부 궁궐 지역",
+      "description": "덕수궁, 경희궁이 위치한 지역"
+    },
+    {
+      "id": "royal_road",
+      "type": "polyline",
+      "positions": [
+        { "lat": 37.5796, "lng": 126.9770 },
+        { "lat": 37.5759, "lng": 126.9769 },
+        { "lat": 37.5658, "lng": 126.9751 }
+      ],
+      "color": "#dc2626",
+      "weight": 4,
+      "title": "어가 행차로",
+      "description": "경복궁에서 덕수궁까지의 왕실 이동 경로"
+    },
+    {
+      "id": "palace_connection",
+      "type": "polyline",
+      "positions": [
+        { "lat": 37.5794, "lng": 126.9910 },
+        { "lat": 37.5792, "lng": 126.9950 }
+      ],
+      "color": "#2563eb",
+      "weight": 3,
+      "title": "창덕궁-창경궁 연결로",
+      "description": "두 궁궐을 연결하는 통로"
+    }
+  ]
 } 

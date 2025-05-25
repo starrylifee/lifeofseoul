@@ -1,4 +1,180 @@
 {
-  "initialMarkers": [],
-  "initialShapes": []
+  "initialMarkers": [
+    {
+      "id": "hangang_start",
+      "position": { "lat": 37.5665, "lng": 127.0945 },
+      "title": "한강 동쪽 시작점",
+      "description": "한강이 서울로 들어오는 지점",
+      "color": "#2563eb",
+      "size": "medium"
+    },
+    {
+      "id": "hangang_end", 
+      "position": { "lat": 37.5665, "lng": 126.8945 },
+      "title": "한강 서쪽 끝점",
+      "description": "한강이 서울을 벗어나는 지점",
+      "color": "#2563eb",
+      "size": "medium"
+    },
+    {
+      "id": "bridge_banpo",
+      "position": { "lat": 37.5133, "lng": 127.0041 },
+      "title": "반포대교",
+      "description": "한강의 대표적인 다리",
+      "color": "#dc2626",
+      "size": "small"
+    },
+    {
+      "id": "bridge_hangang",
+      "position": { "lat": 37.5145, "lng": 126.9581 },
+      "title": "한강대교",
+      "description": "한강철교 옆의 도로교",
+      "color": "#dc2626",
+      "size": "small"
+    },
+    {
+      "id": "bridge_mapo",
+      "position": { "lat": 37.5459, "lng": 126.9441 },
+      "title": "마포대교",
+      "description": "마포구와 영등포구를 연결",
+      "color": "#dc2626",
+      "size": "small"
+    },
+    {
+      "id": "bridge_wonhyo",
+      "position": { "lat": 37.5267, "lng": 126.9356 },
+      "title": "원효대교",
+      "description": "용산구와 영등포구를 연결",
+      "color": "#dc2626",
+      "size": "small"
+    },
+    {
+      "id": "bridge_dongjak",
+      "position": { "lat": 37.5086, "lng": 126.9778 },
+      "title": "동작대교",
+      "description": "동작구와 서초구를 연결",
+      "color": "#dc2626",
+      "size": "small"
+    },
+    {
+      "id": "bridge_seongsu",
+      "position": { "lat": 37.5447, "lng": 127.0557 },
+      "title": "성수대교",
+      "description": "성동구와 강남구를 연결",
+      "color": "#dc2626",
+      "size": "small"
+    },
+    {
+      "id": "stream_cheonggyecheon",
+      "position": { "lat": 37.5694, "lng": 126.9784 },
+      "title": "청계천",
+      "description": "서울 도심을 흐르는 하천",
+      "color": "#059669",
+      "size": "small"
+    },
+    {
+      "id": "stream_jungnangcheon",
+      "position": { "lat": 37.5833, "lng": 127.0833 },
+      "title": "중랑천",
+      "description": "한강의 지류, 동북부를 흐름",
+      "color": "#059669",
+      "size": "small"
+    },
+    {
+      "id": "stream_anyangcheon",
+      "position": { "lat": 37.5167, "lng": 126.8667 },
+      "title": "안양천",
+      "description": "한강의 지류, 서남부를 흐름",
+      "color": "#059669",
+      "size": "small"
+    },
+    {
+      "id": "stream_tancheon",
+      "position": { "lat": 37.4833, "lng": 127.1167 },
+      "title": "탄천",
+      "description": "한강의 지류, 강남을 흐름",
+      "color": "#059669",
+      "size": "small"
+    }
+  ],
+  "initialShapes": [
+    {
+      "id": "hangang_flow",
+      "type": "polyline",
+      "positions": [
+        { "lat": 37.5665, "lng": 127.0945 },
+        { "lat": 37.5665, "lng": 127.0500 },
+        { "lat": 37.5400, "lng": 127.0200 },
+        { "lat": 37.5200, "lng": 126.9900 },
+        { "lat": 37.5300, "lng": 126.9600 },
+        { "lat": 37.5500, "lng": 126.9300 },
+        { "lat": 37.5665, "lng": 126.8945 }
+      ],
+      "color": "#2563eb",
+      "weight": 6,
+      "title": "한강 본류",
+      "description": "동쪽에서 서쪽으로 흐르는 한강"
+    },
+    {
+      "id": "cheonggyecheon_flow",
+      "type": "polyline", 
+      "positions": [
+        { "lat": 37.5833, "lng": 127.0167 },
+        { "lat": 37.5750, "lng": 126.9950 },
+        { "lat": 37.5694, "lng": 126.9784 },
+        { "lat": 37.5650, "lng": 126.9600 },
+        { "lat": 37.5600, "lng": 126.9400 }
+      ],
+      "color": "#059669",
+      "weight": 3,
+      "title": "청계천",
+      "description": "도심을 관통하여 한강으로 흐르는 하천"
+    },
+    {
+      "id": "jungnangcheon_flow",
+      "type": "polyline",
+      "positions": [
+        { "lat": 37.6500, "lng": 127.1000 },
+        { "lat": 37.6200, "lng": 127.0900 },
+        { "lat": 37.5900, "lng": 127.0800 },
+        { "lat": 37.5600, "lng": 127.0700 },
+        { "lat": 37.5400, "lng": 127.0600 }
+      ],
+      "color": "#059669",
+      "weight": 3,
+      "title": "중랑천",
+      "description": "동북부에서 한강으로 흐르는 지류"
+    },
+    {
+      "id": "anyangcheon_flow",
+      "type": "polyline",
+      "positions": [
+        { "lat": 37.4500, "lng": 126.8500 },
+        { "lat": 37.4700, "lng": 126.8600 },
+        { "lat": 37.4900, "lng": 126.8700 },
+        { "lat": 37.5100, "lng": 126.8800 },
+        { "lat": 37.5200, "lng": 126.9000 }
+      ],
+      "color": "#059669",
+      "weight": 3,
+      "title": "안양천",
+      "description": "서남부에서 한강으로 흐르는 지류"
+    },
+    {
+      "id": "tancheon_flow",
+      "type": "polyline",
+      "positions": [
+        { "lat": 37.4000, "lng": 127.1500 },
+        { "lat": 37.4200, "lng": 127.1400 },
+        { "lat": 37.4400, "lng": 127.1300 },
+        { "lat": 37.4600, "lng": 127.1200 },
+        { "lat": 37.4800, "lng": 127.1100 },
+        { "lat": 37.5000, "lng": 127.0800 }
+      ],
+      "color": "#059669",
+      "weight": 3,
+      "title": "탄천",
+      "description": "강남에서 한강으로 흐르는 지류"
+    }
+  ]
 } 

@@ -1,4 +1,150 @@
 {
-  "initialMarkers": [],
-  "initialShapes": []
+  "initialMarkers": [
+    {
+      "id": "gyeongbokgung",
+      "position": { "lat": 37.5796, "lng": 126.9770 },
+      "title": "경복궁",
+      "description": "조선시대 정궁",
+      "color": "#dc2626",
+      "size": "large"
+    },
+    {
+      "id": "changdeokgung",
+      "position": { "lat": 37.5794, "lng": 126.9910 },
+      "title": "창덕궁",
+      "description": "유네스코 세계문화유산",
+      "color": "#dc2626",
+      "size": "large"
+    },
+    {
+      "id": "national_museum",
+      "position": { "lat": 37.5240, "lng": 126.9803 },
+      "title": "국립중앙박물관",
+      "description": "한국 최대 규모 박물관",
+      "color": "#2563eb",
+      "size": "large"
+    },
+    {
+      "id": "arts_center",
+      "position": { "lat": 37.4775, "lng": 127.0119 },
+      "title": "예술의전당",
+      "description": "종합 문화예술 공간",
+      "color": "#7c3aed",
+      "size": "large"
+    },
+    {
+      "id": "sejong_center",
+      "position": { "lat": 37.5720, "lng": 126.9756 },
+      "title": "세종문화회관",
+      "description": "서울시 대표 공연장",
+      "color": "#7c3aed",
+      "size": "medium"
+    },
+    {
+      "id": "mmca_seoul",
+      "position": { "lat": 37.5759, "lng": 126.9769 },
+      "title": "국립현대미술관 서울관",
+      "description": "현대미술 전문 미술관",
+      "color": "#2563eb",
+      "size": "medium"
+    },
+    {
+      "id": "hongdae",
+      "position": { "lat": 37.5571, "lng": 126.9245 },
+      "title": "홍대 문화거리",
+      "description": "젊은이들의 문화 중심지",
+      "color": "#f59e0b",
+      "size": "medium"
+    },
+    {
+      "id": "itaewon",
+      "position": { "lat": 37.5347, "lng": 126.9947 },
+      "title": "이태원 문화거리",
+      "description": "국제적인 문화거리",
+      "color": "#f59e0b",
+      "size": "medium"
+    },
+    {
+      "id": "insadong",
+      "position": { "lat": 37.5759, "lng": 126.9854 },
+      "title": "인사동",
+      "description": "전통문화거리",
+      "color": "#059669",
+      "size": "medium"
+    },
+    {
+      "id": "bukchon",
+      "position": { "lat": 37.5825, "lng": 126.9834 },
+      "title": "북촌한옥마을",
+      "description": "전통 한옥 보존지역",
+      "color": "#059669",
+      "size": "medium"
+    },
+    {
+      "id": "myeongdong",
+      "position": { "lat": 37.5608, "lng": 126.9867 },
+      "title": "명동",
+      "description": "쇼핑과 문화의 거리",
+      "color": "#f59e0b",
+      "size": "medium"
+    },
+    {
+      "id": "gangnam_culture",
+      "position": { "lat": 37.4979, "lng": 127.0276 },
+      "title": "강남 문화거리",
+      "description": "현대적 문화공간",
+      "color": "#f59e0b",
+      "size": "medium"
+    }
+  ],
+  "initialShapes": [
+    {
+      "id": "palace_area",
+      "type": "polygon",
+      "positions": [
+        { "lat": 37.5900, "lng": 126.9700 },
+        { "lat": 37.5900, "lng": 126.9950 },
+        { "lat": 37.5700, "lng": 126.9950 },
+        { "lat": 37.5700, "lng": 126.9700 },
+        { "lat": 37.5900, "lng": 126.9700 }
+      ],
+      "color": "#dc2626",
+      "fillColor": "#fecaca",
+      "fillOpacity": 0.3,
+      "title": "고궁 밀집지역",
+      "description": "경복궁, 창덕궁 등이 위치한 전통문화 중심지"
+    },
+    {
+      "id": "museum_area",
+      "type": "polygon",
+      "positions": [
+        { "lat": 37.5300, "lng": 126.9700 },
+        { "lat": 37.5300, "lng": 126.9900 },
+        { "lat": 37.5200, "lng": 126.9900 },
+        { "lat": 37.5200, "lng": 126.9700 },
+        { "lat": 37.5300, "lng": 126.9700 }
+      ],
+      "color": "#2563eb",
+      "fillColor": "#bfdbfe",
+      "fillOpacity": 0.3,
+      "title": "박물관 지역",
+      "description": "국립중앙박물관 일대"
+    },
+    {
+      "id": "arts_district",
+      "type": "polygon",
+      "positions": [
+        { "lat": 37.4850, "lng": 127.0050 },
+        { "lat": 37.4850, "lng": 127.0200 },
+        { "lat": 37.4700, "lng": 127.0200 },
+        { "lat": 37.4700, "lng": 127.0050 },
+        { "lat": 37.4850, "lng": 127.0050 }
+      ],
+      "color": "#7c3aed",
+      "fillColor": "#ddd6fe",
+      "fillOpacity": 0.3,
+      "title": "예술 지구",
+      "description": "예술의전당 일대 문화예술 공간"
+    }
+  ]
 } 

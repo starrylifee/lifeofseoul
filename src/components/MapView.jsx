@@ -1411,15 +1411,16 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
 
           {/* 주변 도시 마커들 (교사 예시) */}
           {lessonData?.surroundingCities?.map((city) => {
+            const isTransparent = city.fillColor === 'transparent';
             return (
               <CircleMarker 
                 key={`city-${city.name}`} 
                 center={[city.position.lat, city.position.lng]}
                 radius={15}
                 pathOptions={{
-                  color: city.color === '#FFB6C1' ? '#FF69B4' : '#1E90FF',
-                  fillColor: city.color === '#FFB6C1' ? '#FFB6C1' : '#87CEEB',
-                  fillOpacity: 0.8,
+                  color: city.color || '#1E90FF',
+                  fillColor: isTransparent ? 'transparent' : (city.color === '#FFB6C1' ? '#FFB6C1' : '#87CEEB'),
+                  fillOpacity: isTransparent ? 0 : 0.8,
                   weight: 3
                 }}
               >
@@ -1428,10 +1429,14 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
                     <h4 className="font-bold">{city.name}</h4>
                     <p>서울의 {city.direction}에 위치</p>
                     <div 
-                      className="w-4 h-4 inline-block rounded-full mr-2"
-                      style={{ backgroundColor: city.color }}
+                      className="w-4 h-4 inline-block rounded-full mr-2 border border-gray-300"
+                      style={{ 
+                        backgroundColor: isTransparent ? 'transparent' : city.color,
+                        borderColor: city.color || '#1E90FF'
+                      }}
                     ></div>
-                    {city.color === '#FFB6C1' ? '분홍색 표시' : '하늘색 표시'}
+                    {city.color === '#FFB6C1' ? '분홍색 표시' : 
+                     isTransparent ? '파란색 테두리 (경기도)' : '하늘색 표시'}
                     <br />
                     <small className="text-gray-500">교사 예시 마커</small>
                   </div>
@@ -1621,24 +1626,6 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
                   </div>
                 </Popup>
               </Polygon>
-
-              {/* 경기도 각 시 경계 (중심점을 기준으로 한 원형 표시) */}
-              {ADMINISTRATIVE_BOUNDARIES.gyeonggiCities.map((city) => (
-                <CircleMarker
-                  key={city.name}
-                  center={city.center}
-                  radius={25}
-                  pathOptions={city.style}
-                >
-                  <Popup>
-                    <div className="text-center">
-                      <h3 className="font-bold text-blue-600">{city.name}</h3>
-                      <p className="text-sm text-gray-600">경기도 소속</p>
-                      <p className="text-xs text-gray-500">파란색 경계로 표시</p>
-                    </div>
-                  </Popup>
-                </CircleMarker>
-              ))}
             </>
           )}
         </MapContainer>
