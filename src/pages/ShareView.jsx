@@ -4,7 +4,7 @@ import { collection, getDocs } from "firebase/firestore";
 import { db } from '../firebase';
 
 function ShareView() {
-  const { isTeacher, userRole } = useAuth();
+  const { userRole } = useAuth();
   const [classes, setClasses] = useState([]);
   const [selectedClass1, setSelectedClass1] = useState('');
   const [selectedClass2, setSelectedClass2] = useState('');

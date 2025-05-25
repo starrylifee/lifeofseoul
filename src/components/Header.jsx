@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const Header = () => {
@@ -17,7 +18,7 @@ const Header = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-4 md:py-6">
           {/* 로고 및 제목 */}
-          <div className="flex items-center space-x-3">
+          <Link to="/" className="flex items-center space-x-3 hover:scale-105 transition-transform duration-200">
             <div className="bg-white p-2 md:p-3 rounded-2xl shadow-soft">
               <span className="text-2xl md:text-3xl">🏙️</span>
             </div>
@@ -29,7 +30,7 @@ const Header = () => {
                 초등 4학년 사회과 학습
               </p>
             </div>
-          </div>
+          </Link>
 
           {/* 사용자 정보 및 로그아웃 */}
           {currentUser && (

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../firebase'; // Firebase auth instance 및 Firestore
+import { auth } from '../firebase'; // Firebase auth instance 및 Firestore
 import { 
     signInWithEmailAndPassword 
 } from "firebase/auth";

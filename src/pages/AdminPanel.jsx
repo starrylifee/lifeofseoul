@@ -1,19 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   getAuth, 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword,
-  signOut
+  createUserWithEmailAndPassword
 } from "firebase/auth";
 import { 
   collection, 
   doc, 
   setDoc, 
-  getDocs, 
-  query, 
-  where, 
-  orderBy,
-  deleteDoc
+  getDocs
 } from "firebase/firestore";
 import { db } from '../firebase';
 
