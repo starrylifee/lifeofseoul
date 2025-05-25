@@ -1897,20 +1897,31 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
             {/* 서울시 경계 - 모든 레슨에서 표시 */}
             <Polygon
               positions={ADMINISTRATIVE_BOUNDARIES.seoul.coordinates}
-              pathOptions={ADMINISTRATIVE_BOUNDARIES.seoul.style}
+              pathOptions={{
+                ...ADMINISTRATIVE_BOUNDARIES.seoul.style,
+                fillOpacity: lessonId === '1' ? 0.15 : 0 // 1차시에서만 내부 색깔 표시
+              }}
+              eventHandlers={{
+                click: lessonId === '1' ? undefined : (e) => {
+                  e.originalEvent.stopPropagation(); // 2~8차시에서는 클릭 이벤트 차단
+                }
+              }}
             >
-              <Popup>
-                <div className="text-center">
-                  <h3 className="font-bold text-red-600">{ADMINISTRATIVE_BOUNDARIES.seoul.name}</h3>
-                  <p className="text-sm text-gray-600">대한민국의 수도</p>
-                  <p className="text-xs text-gray-500">빨간색 경계로 표시</p>
-                  <div className="mt-2 text-xs text-gray-600">
-                    <div>• 면적: 약 605㎢</div>
-                    <div>• 인구: 약 950만 명</div>
-                    <div>• 25개 자치구</div>
+              {/* 1차시에서만 팝업 표시 */}
+              {lessonId === '1' && (
+                <Popup>
+                  <div className="text-center">
+                    <h3 className="font-bold text-red-600">{ADMINISTRATIVE_BOUNDARIES.seoul.name}</h3>
+                    <p className="text-sm text-gray-600">대한민국의 수도</p>
+                    <p className="text-xs text-gray-500">빨간색 경계로 표시</p>
+                    <div className="mt-2 text-xs text-gray-600">
+                      <div>• 면적: 약 605㎢</div>
+                      <div>• 인구: 약 950만 명</div>
+                      <div>• 25개 자치구</div>
+                    </div>
                   </div>
-                </div>
-              </Popup>
+                </Popup>
+              )}
             </Polygon>
 
             {/* 레슨 1에서만 경기도 도시들 표시 */}
