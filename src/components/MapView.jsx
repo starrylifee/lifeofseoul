@@ -1675,29 +1675,30 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       <div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded">
         📍 지도 정보: 레슨 {lessonId} | 중심: [{mapCenter[0]}, {mapCenter[1]}] | 줌: {mapZoom} | 
         범위: {lessonConfig.description} | 줌 제한: {mapMinZoom}~{mapMaxZoom} |
-        초기마커: {lessonData?.initialMarkers?.length || 0}개 | 주변도시: {lessonData?.surroundingCities?.length || 0}개
-        {lessonId === '1' && <span> | 🗺️ 행정구역 경계 표시됨</span>}
+        초기마커: {lessonData?.initialMarkers?.length || 0}개 | 🗺️ 서울시 경계 표시됨
+        {lessonId === '1' && <span> | 경기도 도시: {lessonData?.surroundingCities?.length || 0}개</span>}
       </div>
       
-      {/* 레슨 1 전용 행정구역 경계 범례 */}
-      {lessonId === '1' && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded">
-          <h3 className="font-bold text-red-800 mb-2">🗺️ 행정구역 경계 안내</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div className="flex items-center">
-              <div className="w-4 h-1 bg-red-500 mr-2 opacity-80" style={{borderTop: '2px dashed #FF0000'}}></div>
-              <span><strong className="text-red-700">서울특별시</strong> - 빨간색 점선 경계</span>
-            </div>
+      {/* 행정구역 경계 범례 - 모든 레슨에서 표시 */}
+      <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded">
+        <h3 className="font-bold text-red-800 mb-2">🗺️ 행정구역 경계 안내</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div className="flex items-center">
+            <div className="w-4 h-1 bg-red-500 mr-2 opacity-80" style={{borderTop: '2px dashed #FF0000'}}></div>
+            <span><strong className="text-red-700">서울특별시</strong> - 빨간색 점선 경계</span>
+          </div>
+          {lessonId === '1' && (
             <div className="flex items-center">
               <div className="w-4 h-4 border-2 border-blue-500 rounded-full mr-2 opacity-60"></div>
               <span><strong className="text-blue-700">경기도 각 시</strong> - 파란색 원형</span>
             </div>
-          </div>
-          <p className="text-xs text-gray-600 mt-2">
-            💡 서울시의 실제 경계선과 주변 도시들의 위치 관계를 파악해보세요. 경계선을 클릭하면 상세 정보를 볼 수 있습니다.
-          </p>
+          )}
         </div>
-      )}
+        <p className="text-xs text-gray-600 mt-2">
+          💡 서울시의 실제 경계선을 통해 서울의 범위를 명확히 파악할 수 있습니다. 
+          {lessonId === '1' ? ' 1차시에서는 주변 경기도 도시들과의 위치 관계도 함께 학습합니다.' : ' 경계선을 클릭하면 서울시 상세 정보를 볼 수 있습니다.'}
+        </p>
+      </div>
       
       {/* Firebase 연결 상태 표시 */}
       {!isFirebaseAvailable && (
@@ -1893,24 +1894,60 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
               )
             ))}
 
-            {/* 레슨 1에서 행정구역 경계 표시 */}
-            {lessonId === '1' && (
-              <>
-                {/* 서울시 경계 */}
-                <Polygon
-                  positions={ADMINISTRATIVE_BOUNDARIES.seoul.coordinates}
-                  pathOptions={ADMINISTRATIVE_BOUNDARIES.seoul.style}
+            {/* 서울시 경계 - 모든 레슨에서 표시 */}
+            <Polygon
+              positions={ADMINISTRATIVE_BOUNDARIES.seoul.coordinates}
+              pathOptions={ADMINISTRATIVE_BOUNDARIES.seoul.style}
+            >
+              <Popup>
+                <div className="text-center">
+                  <h3 className="font-bold text-red-600">{ADMINISTRATIVE_BOUNDARIES.seoul.name}</h3>
+                  <p className="text-sm text-gray-600">대한민국의 수도</p>
+                  <p className="text-xs text-gray-500">빨간색 경계로 표시</p>
+                  <div className="mt-2 text-xs text-gray-600">
+                    <div>• 면적: 약 605㎢</div>
+                    <div>• 인구: 약 950만 명</div>
+                    <div>• 25개 자치구</div>
+                  </div>
+                </div>
+              </Popup>
+            </Polygon>
+
+            {/* 레슨 1에서만 경기도 도시들 표시 */}
+            {lessonId === '1' && lessonData?.surroundingCities?.map((city) => {
+              const isTransparent = city.fillColor === 'transparent';
+              return (
+                <CircleMarker 
+                  key={`city-${city.name}`} 
+                  center={[city.position.lat, city.position.lng]}
+                  radius={15}
+                  pathOptions={{
+                    color: city.color || '#1E90FF',
+                    fillColor: isTransparent ? 'transparent' : (city.color === '#FFB6C1' ? '#FFB6C1' : '#87CEEB'),
+                    fillOpacity: isTransparent ? 0 : 0.8,
+                    weight: 3
+                  }}
                 >
                   <Popup>
-                    <div className="text-center">
-                      <h3 className="font-bold text-red-600">{ADMINISTRATIVE_BOUNDARIES.seoul.name}</h3>
-                      <p className="text-sm text-gray-600">대한민국의 수도</p>
-                      <p className="text-xs text-gray-500">빨간색 경계로 표시</p>
+                    <div>
+                      <h4 className="font-bold">{city.name}</h4>
+                      <p>서울의 {city.direction}에 위치</p>
+                      <div 
+                        className="w-4 h-4 inline-block rounded-full mr-2 border border-gray-300"
+                        style={{ 
+                          backgroundColor: isTransparent ? 'transparent' : city.color,
+                          borderColor: city.color || '#1E90FF'
+                        }}
+                      ></div>
+                      {city.color === '#FFB6C1' ? '분홍색 표시' : 
+                       isTransparent ? '파란색 테두리 (경기도)' : '하늘색 표시'}
+                      <br />
+                      <small className="text-gray-500">교사 예시 마커</small>
                     </div>
                   </Popup>
-                </Polygon>
-              </>
-            )}
+                </CircleMarker>
+              );
+            })}
           </MapEventHandler>
         </MapContainer>
         
