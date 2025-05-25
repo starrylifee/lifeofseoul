@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, FeatureGroup, CircleMarker, Polygon } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, FeatureGroup, CircleMarker, Polygon, Polyline } from 'react-leaflet';
 import { EditControl } from 'react-leaflet-draw';
 import L from 'leaflet'; // Import Leaflet library for custom icons if needed later
 import 'leaflet-draw/dist/leaflet.draw.css'; // Import drawing tool CSS
@@ -1833,6 +1833,54 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
                 </Popup>
               </Marker>
             ))}
+
+            {/* 레슨 데이터의 초기 도형들 (교사 예시) */}
+            {lessonData?.initialShapes?.map((shape) => {
+              if (shape.type === 'polyline') {
+                return (
+                  <Polyline
+                    key={`initial-shape-${shape.id}`}
+                    positions={shape.positions.map(pos => [pos.lat, pos.lng])}
+                    pathOptions={{
+                      color: shape.color || '#dc2626',
+                      weight: shape.weight || 3,
+                      opacity: 0.8
+                    }}
+                  >
+                    <Popup>
+                      <div>
+                        <h4 className="font-bold text-purple-600">{shape.title}</h4>
+                        <p>{shape.description}</p>
+                        <small className="text-gray-500">교사 예시 도형</small>
+                      </div>
+                    </Popup>
+                  </Polyline>
+                );
+              } else if (shape.type === 'polygon') {
+                return (
+                  <Polygon
+                    key={`initial-shape-${shape.id}`}
+                    positions={shape.positions.map(pos => [pos.lat, pos.lng])}
+                    pathOptions={{
+                      color: shape.color || '#dc2626',
+                      weight: shape.weight || 2,
+                      opacity: 0.8,
+                      fillColor: shape.fillColor || shape.color || '#dc2626',
+                      fillOpacity: shape.fillOpacity || 0.2
+                    }}
+                  >
+                    <Popup>
+                      <div>
+                        <h4 className="font-bold text-purple-600">{shape.title}</h4>
+                        <p>{shape.description}</p>
+                        <small className="text-gray-500">교사 예시 도형</small>
+                      </div>
+                    </Popup>
+                  </Polygon>
+                );
+              }
+              return null;
+            })}
 
             {/* 주변 도시 마커들 (교사 예시) */}
             {lessonData?.surroundingCities?.map((city) => {
