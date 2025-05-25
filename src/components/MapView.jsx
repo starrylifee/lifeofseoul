@@ -1874,9 +1874,11 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
                           white-space: nowrap;
                           border: 2px solid ${shape.color || '#dc2626'};
                           box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+                          display: inline-block;
+                          min-width: fit-content;
                         ">${shape.title}</div>`,
                         className: 'polyline-label',
-                        iconSize: [0, 0],
+                        iconSize: [null, null],
                         iconAnchor: [0, 0]
                       })}
                     >
@@ -1931,9 +1933,11 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
                           border: 2px solid ${shape.color || '#dc2626'};
                           box-shadow: 0 2px 6px rgba(0,0,0,0.4);
                           opacity: 0.9;
+                          display: inline-block;
+                          min-width: fit-content;
                         ">${shape.title}</div>`,
                         className: 'polygon-label',
-                        iconSize: [0, 0],
+                        iconSize: [null, null],
                         iconAnchor: [0, 0]
                       })}
                     >
