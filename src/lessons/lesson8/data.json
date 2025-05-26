@@ -1,144 +1,159 @@
 {
   "initialMarkers": [
     {
-      "id": "sungnyemun_gate",
-      "position": { "lat": 37.5597, "lng": 126.9753 },
-      "title": "숭례문 (남대문)",
-      "description": "국보 제1호, 한양도성 남쪽 문",
+      "id": "changuimun_gate",
+      "position": { "lat": 37.592839, "lng": 126.966603 },
+      "title": "창의문 (자하문)",
+      "description": "백악구간 시작점, 인왕산 자락의 소사문",
       "color": "#dc2626",
-      "size": "large"
-    },
-    {
-      "id": "heunginjimun_gate",
-      "position": { "lat": 37.5711, "lng": 127.0094 },
-      "title": "흥인지문 (동대문)",
-      "description": "보물 제1호, 한양도성 동쪽 문",
-      "color": "#2563eb",
-      "size": "large"
-    },
-    {
-      "id": "donuimun_gate",
-      "position": { "lat": 37.5714, "lng": 126.9658 },
-      "title": "돈의문 (서대문)",
-      "description": "복원된 서쪽 문, 현재 돈의문박물관",
-      "color": "#059669",
       "size": "large"
     },
     {
       "id": "sukjeongmun_gate",
-      "position": { "lat": 37.5928, "lng": 126.9811 },
+      "position": { "lat": 37.595721, "lng": 126.981141 },
       "title": "숙정문 (북대문)",
-      "description": "한양도성 북쪽 문",
-      "color": "#f59e0b",
+      "description": "백악구간, 한양도성 북쪽 정문",
+      "color": "#dc2626",
       "size": "large"
     },
     {
-      "id": "changuimun_gate",
-      "position": { "lat": 37.5889, "lng": 126.9667 },
-      "title": "창의문 (자하문)",
-      "description": "소사문, 인왕산 자락",
-      "color": "#7c3aed",
-      "size": "medium"
+      "id": "hyehwamun_gate",
+      "position": { "lat": 37.587986, "lng": 127.003764 },
+      "title": "혜화문",
+      "description": "백악구간 끝점, 낙산구간 시작점",
+      "color": "#2563eb",
+      "size": "large"
     },
     {
-      "id": "hyehwamun_gate",
-      "position": { "lat": 37.5889, "lng": 127.0028 },
-      "title": "혜화문",
-      "description": "소사문, 동북쪽 문",
-      "color": "#7c3aed",
-      "size": "medium"
+      "id": "heunginjimun_gate",
+      "position": { "lat": 37.571368, "lng": 127.009567 },
+      "title": "흥인지문 (동대문)",
+      "description": "낙산구간 끝점, 보물 제1호",
+      "color": "#2563eb",
+      "size": "large"
     },
     {
       "id": "gwanghuimun_gate",
-      "position": { "lat": 37.5597, "lng": 127.0167 },
+      "position": { "lat": 37.564488, "lng": 127.009944 },
       "title": "광희문",
-      "description": "소사문, 동남쪽 문",
-      "color": "#7c3aed",
+      "description": "흥인지문구간, 동남쪽 소사문",
+      "color": "#059669",
       "size": "medium"
     },
     {
-      "id": "namsan_tower",
-      "position": { "lat": 37.5512, "lng": 126.9882 },
-      "title": "N서울타워",
-      "description": "남산 정상, 성곽 구간",
+      "id": "soeuimun_site",
+      "position": { "lat": 37.562678, "lng": 126.972729 },
+      "title": "소의문터",
+      "description": "숭례문구간, 현재는 터만 남음",
       "color": "#f59e0b",
-      "size": "small"
+      "size": "medium"
+    },
+    {
+      "id": "donuimun_site",
+      "position": { "lat": 37.568279, "lng": 126.969155 },
+      "title": "돈의문터 (서대문터)",
+      "description": "숭례문구간 끝점, 인왕산구간 시작점",
+      "color": "#ec4899",
+      "size": "large"
     }
   ],
   "initialShapes": [
     {
-      "id": "hanyang_fortress_wall",
+      "id": "baekak_section",
       "type": "polyline",
       "positions": [
-        { "lat": 37.5597, "lng": 126.9753 },
-        { "lat": 37.5450, "lng": 126.9800 },
-        { "lat": 37.5400, "lng": 126.9900 },
-        { "lat": 37.5450, "lng": 127.0000 },
-        { "lat": 37.5500, "lng": 127.0100 },
-        { "lat": 37.5597, "lng": 127.0167 },
-        { "lat": 37.5650, "lng": 127.0150 },
-        { "lat": 37.5711, "lng": 127.0094 },
-        { "lat": 37.5800, "lng": 127.0050 },
-        { "lat": 37.5850, "lng": 127.0000 },
-        { "lat": 37.5889, "lng": 127.0028 },
-        { "lat": 37.5920, "lng": 126.9950 },
-        { "lat": 37.5928, "lng": 126.9811 },
-        { "lat": 37.5920, "lng": 126.9750 },
-        { "lat": 37.5889, "lng": 126.9667 },
-        { "lat": 37.5850, "lng": 126.9650 },
-        { "lat": 37.5800, "lng": 126.9650 },
-        { "lat": 37.5714, "lng": 126.9658 },
-        { "lat": 37.5650, "lng": 126.9700 },
-        { "lat": 37.5597, "lng": 126.9753 }
-      ],
-      "color": "#8b5cf6",
-      "weight": 5,
-      "title": "한양도성 성곽",
-      "description": "조선시대 한양을 둘러싼 성곽 (총 18.6km)"
-    },
-    {
-      "id": "namsan_section",
-      "type": "polyline",
-      "positions": [
-        { "lat": 37.5597, "lng": 126.9753 },
-        { "lat": 37.5550, "lng": 126.9800 },
-        { "lat": 37.5512, "lng": 126.9882 },
-        { "lat": 37.5480, "lng": 126.9950 },
-        { "lat": 37.5450, "lng": 127.0000 }
+        { "lat": 37.592839, "lng": 126.966603 },
+        { "lat": 37.596545, "lng": 126.976070 },
+        { "lat": 37.598337, "lng": 126.976738 },
+        { "lat": 37.595721, "lng": 126.981141 },
+        { "lat": 37.590776, "lng": 126.990515 },
+        { "lat": 37.587986, "lng": 127.003764 }
       ],
       "color": "#dc2626",
-      "weight": 6,
-      "title": "남산 성곽구간",
-      "description": "가장 잘 보존된 성곽 구간"
+      "weight": 8,
+      "title": "백악구간",
+      "description": "창의문에서 혜화문까지, 백악산을 따라 이어진 성곽"
     },
     {
       "id": "naksan_section",
       "type": "polyline",
       "positions": [
-        { "lat": 37.5711, "lng": 127.0094 },
-        { "lat": 37.5750, "lng": 127.0050 },
-        { "lat": 37.5800, "lng": 127.0000 },
-        { "lat": 37.5850, "lng": 126.9950 },
-        { "lat": 37.5889, "lng": 127.0028 }
+        { "lat": 37.587986, "lng": 127.003764 },
+        { "lat": 37.580973, "lng": 127.007721 },
+        { "lat": 37.571368, "lng": 127.009567 }
       ],
       "color": "#2563eb",
-      "weight": 6,
-      "title": "낙산 성곽구간",
-      "description": "동쪽 산릉을 따라 이어진 성곽"
+      "weight": 8,
+      "title": "낙산구간",
+      "description": "혜화문에서 흥인지문까지, 낙산을 따라 이어진 성곽"
+    },
+    {
+      "id": "heunginjimun_section",
+      "type": "polyline",
+      "positions": [
+        { "lat": 37.571368, "lng": 127.009567 },
+        { "lat": 37.567000, "lng": 127.010878 },
+        { "lat": 37.564488, "lng": 127.009944 },
+        { "lat": 37.558124, "lng": 127.008124 }
+      ],
+      "color": "#059669",
+      "weight": 8,
+      "title": "흥인지문구간",
+      "description": "흥인지문에서 남산구간까지, 광희문을 지나는 구간"
+    },
+    {
+      "id": "namsan_section",
+      "type": "polyline",
+      "positions": [
+        { "lat": 37.558124, "lng": 127.008124 },
+        { "lat": 37.556899, "lng": 127.008135 },
+        { "lat": 37.555368, "lng": 127.006161 },
+        { "lat": 37.551804, "lng": 127.003972 },
+        { "lat": 37.550528, "lng": 127.004455 },
+        { "lat": 37.549539, "lng": 127.002762 },
+        { "lat": 37.550194, "lng": 126.998700 },
+        { "lat": 37.548024, "lng": 126.996703 },
+        { "lat": 37.551545, "lng": 126.988941 },
+        { "lat": 37.553032, "lng": 126.986893 },
+        { "lat": 37.553564, "lng": 126.982522 },
+        { "lat": 37.555583, "lng": 126.977427 }
+      ],
+      "color": "#f59e0b",
+      "weight": 8,
+      "title": "남산(목멱산)구간",
+      "description": "남산을 따라 이어진 성곽, 가장 긴 구간"
+    },
+    {
+      "id": "sungnyemun_section",
+      "type": "polyline",
+      "positions": [
+        { "lat": 37.555583, "lng": 126.977427 },
+        { "lat": 37.560168, "lng": 126.975259 },
+        { "lat": 37.562678, "lng": 126.972729 },
+        { "lat": 37.565447, "lng": 126.971366 },
+        { "lat": 37.568279, "lng": 126.969155 }
+      ],
+      "color": "#ec4899",
+      "weight": 8,
+      "title": "숭례문구간",
+      "description": "남산구간에서 돈의문터까지, 소의문터를 지나는 구간"
     },
     {
       "id": "inwangsan_section",
       "type": "polyline",
       "positions": [
-        { "lat": 37.5714, "lng": 126.9658 },
-        { "lat": 37.5800, "lng": 126.9650 },
-        { "lat": 37.5850, "lng": 126.9650 },
-        { "lat": 37.5889, "lng": 126.9667 }
+        { "lat": 37.568279, "lng": 126.969155 },
+        { "lat": 37.570622, "lng": 126.967715 },
+        { "lat": 37.577435, "lng": 126.962342 },
+        { "lat": 37.581024, "lng": 126.958107 },
+        { "lat": 37.582386, "lng": 126.957765 },
+        { "lat": 37.586014, "lng": 126.960811 },
+        { "lat": 37.592750, "lng": 126.966523 }
       ],
-      "color": "#059669",
-      "weight": 6,
-      "title": "인왕산 성곽구간",
-      "description": "서쪽 인왕산을 따라 이어진 성곽"
+      "color": "#8b5cf6",
+      "weight": 8,
+      "title": "인왕산구간",
+      "description": "돈의문터에서 창의문까지, 인왕산을 따라 이어진 성곽"
     }
   ]
 } 

@@ -1060,6 +1060,17 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
   // --- Event Handlers with Firestore Integration ---
 
   const handleMapClick = async (latlng) => {
+    console.log("Map clicked:", {
+      currentUser: currentUser?.email,
+      isStudent: isStudent(),
+      isTeacher: isTeacher(),
+      userActivityDocRef: !!userActivityDocRef,
+      isFirebaseAvailable,
+      classId,
+      selectedStudent,
+      selectedClass
+    });
+
     // Firebase를 사용할 수 없는 경우 로컬에서만 마커 추가
     if (!isFirebaseAvailable) {
       console.log("Firebase를 사용할 수 없습니다. 로컬에서만 마커를 추가합니다.");
@@ -1084,10 +1095,26 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       return;
     }
 
-    // 학생 또는 교사가 자신의 데이터를 추가하는 경우에만 허용
-    // 교사가 다른 학생/반 데이터를 보고 있을 때는 추가 불가
-    if (!userActivityDocRef || (isTeacher() && (selectedStudent !== 'all' || selectedClass !== classId))) {
-      console.error("Cannot add marker: User not logged in, doc ref missing, or viewing other student's/class data.");
+    // 사용자가 로그인되어 있지 않으면 마커 추가 불가
+    if (!currentUser) {
+      console.error("Cannot add marker: User not logged in.");
+      alert('로그인이 필요합니다.');
+      return; 
+    }
+
+    // 학생인 경우: 자신의 데이터에만 추가 가능
+    if (isStudent()) {
+      if (!userActivityDocRef) {
+        console.error("Cannot add marker: Student doc ref missing.");
+        alert('학생 데이터 참조를 찾을 수 없습니다.');
+        return;
+      }
+    }
+    
+    // 교사인 경우: 다른 학생/반 데이터를 보고 있을 때는 추가 불가
+    if (isTeacher() && (selectedStudent !== 'all' || selectedClass !== classId)) {
+      console.error("Cannot add marker: Teacher viewing other student's/class data.");
+      alert('다른 학생이나 반의 데이터를 보고 있을 때는 마커를 추가할 수 없습니다.');
       return; 
     }
 
@@ -2082,9 +2109,6 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
             })}
           </MapEventHandler>
         </MapContainer>
-        
-        {/* 커스텀 지도 컨트롤 */}
-        <MapControls map={mapInstance} lessonConfig={lessonConfig} />
       </div>
     </div>
   );
