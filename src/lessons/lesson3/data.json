@@ -1,86 +1,7 @@
 {
-  "initialMarkers": [
-    {
-      "id": "seoul_station",
-      "position": { "lat": 37.5547, "lng": 126.9706 },
-      "title": "서울역",
-      "description": "지하철 1호선, 4호선, 경의중앙선",
-      "color": "#dc2626",
-      "size": "medium"
-    },
-    {
-      "id": "gangnam_station",
-      "position": { "lat": 37.4979, "lng": 127.0276 },
-      "title": "강남역",
-      "description": "지하철 2호선, 신분당선",
-      "color": "#dc2626",
-      "size": "medium"
-    },
-    {
-      "id": "jongno3ga_station",
-      "position": { "lat": 37.5703, "lng": 126.9911 },
-      "title": "종로3가역",
-      "description": "지하철 1호선, 3호선, 5호선",
-      "color": "#dc2626",
-      "size": "medium"
-    },
-    {
-      "id": "euljiro3ga_station",
-      "position": { "lat": 37.5663, "lng": 126.9919 },
-      "title": "을지로3가역",
-      "description": "지하철 2호선, 3호선",
-      "color": "#dc2626",
-      "size": "medium"
-    },
-    {
-      "id": "hongik_univ_station",
-      "position": { "lat": 37.5571, "lng": 126.9245 },
-      "title": "홍대입구역",
-      "description": "지하철 2호선, 6호선, 공항철도",
-      "color": "#dc2626",
-      "size": "medium"
-    },
-    {
-      "id": "myeongdong_station",
-      "position": { "lat": 37.5608, "lng": 126.9867 },
-      "title": "명동역",
-      "description": "지하철 4호선",
-      "color": "#dc2626",
-      "size": "small"
-    },
-    {
-      "id": "gangbyeonbukro_start",
-      "position": { "lat": 37.5665, "lng": 127.0945 },
-      "title": "강변북로 동쪽",
-      "description": "한강 북쪽을 따라 달리는 도로",
-      "color": "#2563eb",
-      "size": "small"
-    },
-    {
-      "id": "olympic_daero_start",
-      "position": { "lat": 37.5200, "lng": 127.0945 },
-      "title": "올림픽대로 동쪽",
-      "description": "한강 남쪽을 따라 달리는 도로",
-      "color": "#2563eb",
-      "size": "small"
-    }
-  ],
+  "initialMarkers": [],
   "initialShapes": [
-    {
-      "id": "line1_subway",
-      "type": "polyline",
-      "positions": [
-        { "lat": 37.5547, "lng": 126.9706 },
-        { "lat": 37.5658, "lng": 126.9784 },
-        { "lat": 37.5703, "lng": 126.9911 },
-        { "lat": 37.5714, "lng": 126.9658 },
-        { "lat": 37.5800, "lng": 127.0047 }
-      ],
-      "color": "#0052A4",
-      "weight": 4,
-      "title": "지하철 1호선",
-      "description": "서울역-종로3가-동대문 구간"
-    },
+
     {
       "id": "line2_subway",
       "type": "polyline",
@@ -201,24 +122,6 @@
       "weight": 5,
       "title": "올림픽대로",
       "description": "한강 남쪽을 따라 달리는 자동차 전용도로 - 실제 노선 경로"
-    },
-    {
-      "id": "naebu_sunhwan",
-      "type": "polyline",
-      "positions": [
-        { "lat": 37.6000, "lng": 127.0000 },
-        { "lat": 37.5800, "lng": 127.1000 },
-        { "lat": 37.5000, "lng": 127.1200 },
-        { "lat": 37.4500, "lng": 127.0500 },
-        { "lat": 37.4500, "lng": 126.9000 },
-        { "lat": 37.5000, "lng": 126.8500 },
-        { "lat": 37.5800, "lng": 126.9000 },
-        { "lat": 37.6000, "lng": 127.0000 }
-      ],
-      "color": "#f59e0b",
-      "weight": 4,
-      "title": "내부순환로",
-      "description": "서울 시내를 순환하는 도로"
     }
   ]
 } 

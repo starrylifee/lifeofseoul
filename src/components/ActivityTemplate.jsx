@@ -6,17 +6,33 @@ import '../assets/styles/map.css';
 
 function ActivityTemplate({ lessonConfig, children, lessonId, activityData }) {
   const { currentUser } = useAuth();
-  const [currentStep, setCurrentStep] = useState(LESSON_STEPS.BASIC);
+  const [currentStep, setCurrentStep] = useState(LESSON_STEPS.INTRO);
   const [stepProgress, setStepProgress] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [certificateUrl, setCertificateUrl] = useState(null);
 
   const steps = [
-    { name: '소개', description: lessonConfig?.goal || '학습 목표 로딩 중...' },
-    { name: '기초 배움', content: lessonConfig?.basicLearning || '내용 로딩 중...' },
-    { name: '가이드 활동', content: lessonConfig?.guidedActivity || '내용 로딩 중...' },
-    { name: '자유 활동', content: lessonConfig?.freeActivity || '내용 로딩 중...' },
+    { 
+      name: '소개', 
+      key: 'introduction',
+      description: '차시 목표와 학습 동기 유발' 
+    },
+    { 
+      name: '기초 배움', 
+      key: 'basicLearning',
+      description: '교사 예시 데이터로 학습' 
+    },
+    { 
+      name: '가이드 활동', 
+      key: 'guidedActivity',
+      description: '교사의 구체적 미션 수행' 
+    },
+    { 
+      name: '함께 만들어가는 서울', 
+      key: 'collaborativeActivity',
+      description: '다른 반과 공유하고 협력' 
+    },
   ];
 
   // 진행 상태 초기화
@@ -91,22 +107,190 @@ function ActivityTemplate({ lessonConfig, children, lessonId, activityData }) {
   const allStepsCompleted = Object.keys(stepProgress).length === steps.length &&
     Object.values(stepProgress).every(value => value === true);
 
+  // 소개 단계 렌더링
+  const renderIntroduction = () => {
+    const intro = lessonConfig?.introduction;
+    if (!intro) return <div>소개 내용을 로딩 중...</div>;
+
+    return (
+      <div className="space-y-6">
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <h4 className="text-lg font-semibold mb-3 text-blue-800">🎯 학습 목표</h4>
+          <ul className="space-y-2">
+            {intro.objectives?.map((objective, index) => (
+              <li key={index} className="flex items-start">
+                <span className="text-blue-600 mr-2">✓</span>
+                <span className="text-gray-700">{objective}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="bg-green-50 p-4 rounded-lg">
+          <h4 className="text-lg font-semibold mb-3 text-green-800">📖 학습 맥락</h4>
+          <p className="text-gray-700 leading-relaxed">{intro.context}</p>
+        </div>
+
+        <div className="bg-yellow-50 p-4 rounded-lg">
+          <h4 className="text-lg font-semibold mb-3 text-yellow-800">🏠 실생활 연관성</h4>
+          <p className="text-gray-700 leading-relaxed">{intro.realLifeConnection}</p>
+        </div>
+
+        <div className="bg-purple-50 p-4 rounded-lg">
+          <h4 className="text-lg font-semibold mb-3 text-purple-800">🤔 생각해볼 질문들</h4>
+          <ul className="space-y-2">
+            {intro.curiosityQuestions?.map((question, index) => (
+              <li key={index} className="flex items-start">
+                <span className="text-purple-600 mr-2">❓</span>
+                <span className="text-gray-700">{question}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    );
+  };
+
+  // 기초 배움 단계 렌더링
+  const renderBasicLearning = () => {
+    const basicLearning = lessonConfig?.basicLearning;
+    if (!basicLearning) return <div>기초 배움 내용을 로딩 중...</div>;
+
+    return (
+      <div className="space-y-4">
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <h4 className="text-lg font-semibold mb-3 text-gray-800">📚 기초 배움 내용</h4>
+          {Array.isArray(basicLearning) ? (
+            <ul className="space-y-2">
+              {basicLearning.map((item, index) => (
+                <li key={index} className="flex items-start">
+                  <span className="text-blue-600 mr-2">📍</span>
+                  <span className="text-gray-700">{item}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-gray-700">{basicLearning}</p>
+          )}
+        </div>
+        
+        {/* 기초 배움 단계에서도 지도 표시 */}
+        <div className="mt-4">
+          <h4 className="text-lg font-medium mb-2 text-gray-800">🗺️ 지도에서 확인하기</h4>
+          <div className="border rounded-lg p-2">
+            {children}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // 가이드 활동 단계 렌더링
+  const renderGuidedActivity = () => {
+    const guidedActivity = lessonConfig?.guidedActivity;
+    if (!guidedActivity) return <div>가이드 활동 내용을 로딩 중...</div>;
+
+    return (
+      <div className="space-y-4">
+        <div className="bg-orange-50 p-4 rounded-lg">
+          <h4 className="text-lg font-semibold mb-3 text-orange-800">🎯 {guidedActivity.title || '가이드 활동'}</h4>
+          
+          {guidedActivity.missions && Array.isArray(guidedActivity.missions) ? (
+            <div className="space-y-4">
+              {guidedActivity.missions.map((mission, index) => (
+                <div key={mission.id || index} className="bg-white p-4 rounded-lg border border-orange-200">
+                  <h5 className="font-semibold text-orange-700 mb-2">
+                    미션 {index + 1}: {mission.title}
+                  </h5>
+                  <p className="text-gray-700 mb-2">{mission.description}</p>
+                  {mission.example && (
+                    <p className="text-sm text-gray-600 italic bg-gray-100 p-2 rounded">
+                      {mission.example}
+                    </p>
+                  )}
+                  {mission.requiredImages > 0 && (
+                    <p className="text-sm text-blue-600 mt-2">
+                      📷 이미지 {mission.requiredImages}개 필요
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : Array.isArray(guidedActivity) ? (
+            <ul className="space-y-2">
+              {guidedActivity.map((item, index) => (
+                <li key={index} className="flex items-start">
+                  <span className="text-orange-600 mr-2">🎯</span>
+                  <span className="text-gray-700">{item}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-gray-700">{guidedActivity}</p>
+          )}
+        </div>
+        
+        {/* 가이드 활동 단계에서도 지도 표시 */}
+        <div className="mt-4">
+          <h4 className="text-lg font-medium mb-2 text-gray-800">🗺️ 미션 수행하기</h4>
+          <div className="border rounded-lg p-2">
+            {children}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // 함께 만들어가는 서울 단계 렌더링
+  const renderCollaborativeActivity = () => {
+    const collaborativeActivity = lessonConfig?.collaborativeActivity;
+    if (!collaborativeActivity) return <div>협력 활동 내용을 로딩 중...</div>;
+
+    return (
+      <div className="space-y-4">
+        <div className="bg-green-50 p-4 rounded-lg">
+          <h4 className="text-lg font-semibold mb-3 text-green-800">🤝 함께 만들어가는 서울</h4>
+          <p className="text-gray-700 leading-relaxed">{collaborativeActivity}</p>
+        </div>
+        
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <h4 className="text-lg font-semibold mb-3 text-blue-800">👥 다른 반 활동 보기</h4>
+          <p className="text-gray-600 mb-3">다른 반 친구들의 활동을 구경하고 댓글로 소통해보세요!</p>
+          
+          {/* 여기에 다른 반 활동을 보여주는 컴포넌트가 들어갈 예정 */}
+          <div className="bg-white p-4 rounded border border-blue-200">
+            <p className="text-gray-500 text-center">다른 반 활동 목록이 여기에 표시됩니다.</p>
+          </div>
+        </div>
+        
+        {/* 협력 활동에서도 지도 표시 */}
+        <div className="mt-4">
+          <h4 className="text-lg font-medium mb-2 text-gray-800">🗺️ 우리 반 활동 결과</h4>
+          <div className="border rounded-lg p-2">
+            {children}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="border rounded-lg p-6 shadow-lg">
       <h2 className="text-2xl font-bold mb-4">{lessonConfig?.title || '레슨 제목'}</h2>
 
       {/* Step Indicator */}
-      <div className="flex justify-center space-x-4 mb-6">
+      <div className="flex justify-center space-x-2 mb-6 overflow-x-auto">
         {steps.map((step, index) => (
           <div 
             key={index} 
-            className={`px-3 py-1 rounded-full text-sm ${
+            className={`px-3 py-2 rounded-full text-sm whitespace-nowrap cursor-pointer transition-colors ${
               index === currentStep 
                 ? 'bg-blue-500 text-white' 
                 : stepProgress[`step${index}`] 
                   ? 'bg-green-500 text-white' 
-                  : 'bg-gray-200'
+                  : 'bg-gray-200 hover:bg-gray-300'
             }`}
+            onClick={() => setCurrentStep(index)}
           >
             {step.name}
           </div>
@@ -120,67 +304,22 @@ function ActivityTemplate({ lessonConfig, children, lessonId, activityData }) {
       )}
 
       {/* Step Content */}
-      <div className="mb-6 min-h-[200px]">
-        <h3 className="text-xl font-semibold mb-2">{steps[currentStep].name}</h3>
+      <div className="mb-6 min-h-[400px]">
+        <div className="mb-4">
+          <h3 className="text-xl font-semibold text-gray-800">{steps[currentStep].name}</h3>
+          <p className="text-gray-600 text-sm">{steps[currentStep].description}</p>
+        </div>
         
-        {currentStep === LESSON_STEPS.INTRO && <div className="text-lg">{steps[currentStep].description}</div>}
-        
-        {currentStep === LESSON_STEPS.BASIC && (
-          <div>
-            {Array.isArray(lessonConfig?.basicLearning) ? (
-              <ul className="list-disc list-inside space-y-2 mb-4">
-                {lessonConfig.basicLearning.map((item, index) => (
-                  <li key={index} className="text-gray-700">{item}</li>
-                ))}
-              </ul>
-            ) : (
-              <div className="mb-4">{lessonConfig?.basicLearning}</div>
-            )}
-            
-            {/* 기초 배움 단계에서도 지도 표시 */}
-            <div className="mt-4">
-              <h4 className="text-lg font-medium mb-2">📍 지도 활동</h4>
-              {children}
-            </div>
-          </div>
-        )}
-        
-        {currentStep === LESSON_STEPS.GUIDED && (
-          <div>
-            {Array.isArray(lessonConfig?.guidedActivity) ? (
-              <ul className="list-disc list-inside space-y-2 mb-4">
-                {lessonConfig.guidedActivity.map((item, index) => (
-                  <li key={index} className="text-gray-700">{item}</li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mb-3">{lessonConfig?.guidedActivity}</p>
-            )}
-            
-            {/* 가이드 활동 단계에서도 지도 표시 */}
-            <div className="mt-4">
-              <h4 className="text-lg font-medium mb-2">🗺️ 가이드 지도 활동</h4>
-              {children}
-            </div>
-          </div>
-        )} 
-        
-        {currentStep === LESSON_STEPS.FREE && (
-          <div>
-            <p className="mb-3 text-lg font-medium">{lessonConfig?.freeActivity}</p>
-            <textarea 
-              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-              rows="6"
-              placeholder="자유 활동 내용을 입력하세요..."
-            ></textarea>
-          </div>
-        )}
+        {currentStep === LESSON_STEPS.INTRO && renderIntroduction()}
+        {currentStep === LESSON_STEPS.BASIC && renderBasicLearning()}
+        {currentStep === LESSON_STEPS.GUIDED && renderGuidedActivity()}
+        {currentStep === LESSON_STEPS.COLLABORATIVE && renderCollaborativeActivity()}
       </div>
 
       {/* Certificate Display (if generated) */}
       {certificateUrl && (
         <div className="mb-6 text-center">
-          <h3 className="text-xl font-semibold mb-2">인증장</h3>
+          <h3 className="text-xl font-semibold mb-2">🏆 인증장</h3>
           <img 
             src={certificateUrl} 
             alt="학습 인증장" 
@@ -188,7 +327,7 @@ function ActivityTemplate({ lessonConfig, children, lessonId, activityData }) {
           />
           <button 
             onClick={() => window.open(certificateUrl, '_blank')}
-            className="mt-2 px-4 py-2 bg-blue-500 text-white rounded"
+            className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
           >
             인증장 다운로드
           </button>
@@ -200,7 +339,7 @@ function ActivityTemplate({ lessonConfig, children, lessonId, activityData }) {
         <button
           onClick={handlePrev}
           disabled={currentStep === 0 || isLoading}
-          className="px-4 py-2 bg-gray-300 rounded disabled:opacity-50"
+          className="px-4 py-2 bg-gray-300 rounded disabled:opacity-50 hover:bg-gray-400 transition-colors"
         >
           이전
         </button>
@@ -209,7 +348,7 @@ function ActivityTemplate({ lessonConfig, children, lessonId, activityData }) {
           <button 
             onClick={handleNext} 
             disabled={isLoading}
-            className="px-4 py-2 bg-blue-500 text-white rounded disabled:opacity-50"
+            className="px-4 py-2 bg-blue-500 text-white rounded disabled:opacity-50 hover:bg-blue-600 transition-colors"
           >
             {isLoading ? '저장 중...' : '다음'}
           </button>
@@ -217,15 +356,15 @@ function ActivityTemplate({ lessonConfig, children, lessonId, activityData }) {
           <button 
             onClick={generateCertificate} 
             disabled={isLoading || certificateUrl}
-            className="px-4 py-2 bg-green-500 text-white rounded disabled:opacity-50"
+            className="px-4 py-2 bg-green-500 text-white rounded disabled:opacity-50 hover:bg-green-600 transition-colors"
           >
-            {isLoading ? '생성 중...' : certificateUrl ? '인증장 발급 완료' : '인증장 발급'}
+            {isLoading ? '생성 중...' : certificateUrl ? '인증장 발급 완료' : '🏆 인증장 발급'}
           </button>
         ) : (
           <button 
             onClick={() => handleStepComplete(currentStep)} 
             disabled={isLoading}
-            className="px-4 py-2 bg-blue-500 text-white rounded disabled:opacity-50"
+            className="px-4 py-2 bg-blue-500 text-white rounded disabled:opacity-50 hover:bg-blue-600 transition-colors"
           >
             {isLoading ? '저장 중...' : '완료'}
           </button>

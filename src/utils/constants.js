@@ -7,10 +7,10 @@ export const USER_ROLES = {
 
 // 레슨 단계
 export const LESSON_STEPS = {
-  INTRO: 0,     // 소개
-  BASIC: 1,     // 기초 배움
-  GUIDED: 2,    // 가이드된 활동
-  FREE: 3       // 자유 활동
+  INTRO: 0,           // 소개
+  BASIC: 1,           // 기초 배움
+  GUIDED: 2,          // 가이드 활동
+  COLLABORATIVE: 3    // 함께 만들어가는 서울
 };
 
 // 활동 상태
