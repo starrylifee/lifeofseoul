@@ -42,7 +42,7 @@
     },
     {
       "id": "express_bus_terminal",
-      "position": { "lat": 37.5048, "lng": 127.0051 },
+      "position": { "lat": 37.504925, "lng": 127.004954 },
       "title": "고속버스터미널",
       "description": "전국 고속버스 중심지",
       "color": "#059669",
@@ -50,7 +50,7 @@
     },
     {
       "id": "dong_seoul_terminal",
-      "position": { "lat": 37.5320, "lng": 127.1025 },
+      "position": { "lat": 37.534560, "lng": 127.094080 },
       "title": "동서울터미널",
       "description": "동부지역 버스터미널",
       "color": "#059669",
@@ -58,19 +58,27 @@
     },
     {
       "id": "nambu_terminal",
-      "position": { "lat": 37.4763, "lng": 126.9831 },
+      "position": { "lat": 37.484293, "lng": 127.015595 },
       "title": "남부터미널",
       "description": "남부지역 버스터미널",
       "color": "#059669",
       "size": "medium"
     },
     {
-      "id": "sangbong_terminal",
-      "position": { "lat": 37.5967, "lng": 127.0897 },
-      "title": "상봉터미널",
-      "description": "북부지역 버스터미널",
-      "color": "#059669",
+      "id": "gwangmyeong_station",
+      "position": { "lat": 37.417245, "lng": 126.884733 },
+      "title": "광명역",
+      "description": "KTX 정차역",
+      "color": "#dc2626",
       "size": "medium"
+    },
+    {
+      "id": "suseo_station",
+      "position": { "lat": 37.485617, "lng": 127.104392 },
+      "title": "수서역",
+      "description": "SRT 고속철도 시발역",
+      "color": "#7c3aed",
+      "size": "large"
     }
   ],
   "initialShapes": [
@@ -80,12 +88,37 @@
       "positions": [
         { "lat": 37.5547, "lng": 126.9706 },
         { "lat": 37.5299, "lng": 126.9647 },
-        { "lat": 37.4500, "lng": 126.9500 }
+        { "lat": 37.417245, "lng": 126.884733 },
+        { "lat": 36.3504, "lng": 127.3845 }
       ],
       "color": "#dc2626",
       "weight": 6,
       "title": "KTX 노선",
-      "description": "서울역-용산역을 거쳐 전국으로"
+      "description": "서울역-용산역-광명역-대전역을 거쳐 전국으로"
+    },
+    {
+      "id": "srt_line",
+      "type": "polyline",
+      "positions": [
+        { "lat": 37.485617, "lng": 127.104392 },
+        { "lat": 37.199481, "lng": 127.097425 }
+      ],
+      "color": "#7c3aed",
+      "weight": 6,
+      "title": "SRT 노선",
+      "description": "수서역에서 동탄역을 거쳐 전국으로"
+    },
+    {
+      "id": "cheongnyangni_gangneung_line",
+      "type": "polyline",
+      "positions": [
+        { "lat": 37.5800, "lng": 127.0472 },
+        { "lat": 37.764554, "lng": 128.899530 }
+      ],
+      "color": "#f59e0b",
+      "weight": 4,
+      "title": "청량리-강릉선",
+      "description": "청량리역에서 강릉역으로"
     },
     {
       "id": "airport_railroad",
@@ -118,11 +151,10 @@
       "id": "bus_network",
       "type": "polyline",
       "positions": [
-        { "lat": 37.5048, "lng": 127.0051 },
-        { "lat": 37.5320, "lng": 127.1025 },
-        { "lat": 37.5967, "lng": 127.0897 },
-        { "lat": 37.4763, "lng": 126.9831 },
-        { "lat": 37.5048, "lng": 127.0051 }
+        { "lat": 37.504925, "lng": 127.004954 },
+        { "lat": 37.534560, "lng": 127.094080 },
+        { "lat": 37.484293, "lng": 127.015595 },
+        { "lat": 37.504925, "lng": 127.004954 }
       ],
       "color": "#059669",
       "weight": 3,

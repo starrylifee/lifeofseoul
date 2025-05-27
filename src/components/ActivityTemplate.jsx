@@ -4,7 +4,7 @@ import { updateLessonProgress } from '../utils/api';
 import { LESSON_STEPS } from '../utils/constants';
 import '../assets/styles/map.css';
 
-function ActivityTemplate({ lessonConfig, children, lessonId, activityData }) {
+function ActivityTemplate({ lessonConfig, children, lessonId, activityData, onStepChange }) {
   const { currentUser } = useAuth();
   const [currentStep, setCurrentStep] = useState(LESSON_STEPS.INTRO);
   const [stepProgress, setStepProgress] = useState({});
@@ -27,6 +27,11 @@ function ActivityTemplate({ lessonConfig, children, lessonId, activityData }) {
       name: '가이드 활동', 
       key: 'guidedActivity',
       description: '교사의 구체적 미션 수행' 
+    },
+    { 
+      name: '확인문제', 
+      key: 'quiz',
+      description: '학습 내용 확인하기' 
     },
     { 
       name: '함께 만들어가는 서울', 
@@ -66,7 +71,11 @@ function ActivityTemplate({ lessonConfig, children, lessonId, activityData }) {
       
       // 다음 단계로 이동
       if (stepIndex < steps.length - 1) {
-        setCurrentStep(stepIndex + 1);
+        const nextStep = stepIndex + 1;
+        setCurrentStep(nextStep);
+        if (onStepChange) {
+          onStepChange(nextStep);
+        }
       }
     } catch (err) {
       console.error("Error updating progress:", err);
@@ -82,7 +91,11 @@ function ActivityTemplate({ lessonConfig, children, lessonId, activityData }) {
   };
 
   const handlePrev = () => {
-    setCurrentStep((prev) => Math.max(prev - 1, 0));
+    const newStep = Math.max(currentStep - 1, 0);
+    setCurrentStep(newStep);
+    if (onStepChange) {
+      onStepChange(newStep);
+    }
   };
 
   const generateCertificate = async () => {
@@ -241,6 +254,23 @@ function ActivityTemplate({ lessonConfig, children, lessonId, activityData }) {
     );
   };
 
+  // 확인문제 단계 렌더링
+  const renderQuiz = () => {
+    return (
+      <div className="space-y-4">
+        <div className="bg-yellow-50 p-4 rounded-lg">
+          <h4 className="text-lg font-semibold mb-3 text-yellow-800">📝 확인문제</h4>
+          <p className="text-gray-700 mb-3">지금까지 학습한 내용을 확인해보세요!</p>
+        </div>
+        
+        {/* 퀴즈 컴포넌트가 여기에 렌더링됩니다 */}
+        <div className="quiz-container">
+          {children}
+        </div>
+      </div>
+    );
+  };
+
   // 함께 만들어가는 서울 단계 렌더링
   const renderCollaborativeActivity = () => {
     const collaborativeActivity = lessonConfig?.collaborativeActivity;
@@ -290,7 +320,12 @@ function ActivityTemplate({ lessonConfig, children, lessonId, activityData }) {
                   ? 'bg-green-500 text-white' 
                   : 'bg-gray-200 hover:bg-gray-300'
             }`}
-            onClick={() => setCurrentStep(index)}
+            onClick={() => {
+              setCurrentStep(index);
+              if (onStepChange) {
+                onStepChange(index);
+              }
+            }}
           >
             {step.name}
           </div>
@@ -313,6 +348,7 @@ function ActivityTemplate({ lessonConfig, children, lessonId, activityData }) {
         {currentStep === LESSON_STEPS.INTRO && renderIntroduction()}
         {currentStep === LESSON_STEPS.BASIC && renderBasicLearning()}
         {currentStep === LESSON_STEPS.GUIDED && renderGuidedActivity()}
+        {currentStep === LESSON_STEPS.QUIZ && renderQuiz()}
         {currentStep === LESSON_STEPS.COLLABORATIVE && renderCollaborativeActivity()}
       </div>
 

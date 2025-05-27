@@ -50,10 +50,6 @@ const lesson1Config = {
   
   // 함께 만들어가는 서울 - 다른 반과 공유
   collaborativeActivity: '다른 반 친구들은 어떤 경기도 도시들을 찾았는지 구경해보고, 새로 알게 된 도시가 있으면 댓글로 남겨보세요.',
-  resources: {
-    url: '', 
-    description: 'PDF 서울의 생활 10~11쪽'
-  },
   questions: [
     {
       id: 'q1',

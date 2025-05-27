@@ -26,7 +26,7 @@
     },
     {
       "id": "government_complex",
-      "position": { "lat": 37.5658, "lng": 126.9751 },
+      "position": { "lat": 37.575002, "lng": 126.975353 },
       "title": "정부서울청사",
       "description": "중앙정부 기관들",
       "color": "#2563eb",
@@ -34,7 +34,7 @@
     },
     {
       "id": "seoul_education_office",
-      "position": { "lat": 37.5714, "lng": 126.9658 },
+      "position": { "lat": 37.570367, "lng": 126.966699 },
       "title": "서울시교육청",
       "description": "서울시 교육행정 중심",
       "color": "#059669",
@@ -42,7 +42,7 @@
     },
     {
       "id": "seoul_police_agency",
-      "position": { "lat": 37.5658, "lng": 126.9751 },
+      "position": { "lat": 37.575155, "lng": 126.972059 },
       "title": "서울지방경찰청",
       "description": "서울시 치안 담당",
       "color": "#f59e0b",
@@ -62,31 +62,7 @@
       "title": "청와대 (구 대통령 관저)",
       "description": "현재는 국민에게 개방",
       "color": "#2563eb",
-      "size": "medium"
-    },
-    {
-      "id": "yongsan_presidential_office",
-      "position": { "lat": 37.5326, "lng": 126.9903 },
-      "title": "용산 대통령실",
-      "description": "현재 대통령 집무실",
-      "color": "#2563eb",
-      "size": "medium"
-    },
-    {
-      "id": "gangnam_gu_office",
-      "position": { "lat": 37.5172, "lng": 127.0473 },
-      "title": "강남구청",
-      "description": "강남구 행정 중심",
-      "color": "#dc2626",
-      "size": "small"
-    },
-    {
-      "id": "jongno_gu_office",
-      "position": { "lat": 37.5735, "lng": 126.9788 },
-      "title": "종로구청",
-      "description": "종로구 행정 중심",
-      "color": "#dc2626",
-      "size": "small"
+            "size": "medium"
     }
   ],
   "initialShapes": [
@@ -94,27 +70,27 @@
       "id": "administrative_center",
       "type": "polygon",
       "positions": [
-        { "lat": 37.5800, "lng": 126.9600 },
-        { "lat": 37.5800, "lng": 126.9900 },
-        { "lat": 37.5500, "lng": 126.9900 },
-        { "lat": 37.5500, "lng": 126.9600 },
-        { "lat": 37.5800, "lng": 126.9600 }
+        { "lat": 37.5900, "lng": 126.9600 },
+        { "lat": 37.5900, "lng": 126.9900 },
+        { "lat": 37.5600, "lng": 126.9900 },
+        { "lat": 37.5600, "lng": 126.9600 },
+        { "lat": 37.5900, "lng": 126.9600 }
       ],
       "color": "#dc2626",
       "fillColor": "#fecaca",
       "fillOpacity": 0.3,
       "title": "중앙행정구역",
-      "description": "시청, 정부청사 등이 밀집된 지역"
+      "description": "시청, 정부청사, 청와대 등이 밀집된 지역"
     },
     {
       "id": "yeouido_political_center",
       "type": "polygon",
       "positions": [
-        { "lat": 37.5400, "lng": 126.9000 },
-        { "lat": 37.5400, "lng": 126.9300 },
-        { "lat": 37.5200, "lng": 126.9300 },
-        { "lat": 37.5200, "lng": 126.9000 },
-        { "lat": 37.5400, "lng": 126.9000 }
+        { "lat": 37.5350, "lng": 126.9100 },
+        { "lat": 37.5350, "lng": 126.9200 },
+        { "lat": 37.5250, "lng": 126.9200 },
+        { "lat": 37.5250, "lng": 126.9100 },
+        { "lat": 37.5350, "lng": 126.9100 }
       ],
       "color": "#2563eb",
       "fillColor": "#bfdbfe",
@@ -126,11 +102,11 @@
       "id": "seocho_judicial_center",
       "type": "polygon",
       "positions": [
-        { "lat": 37.4900, "lng": 127.0300 },
-        { "lat": 37.4900, "lng": 127.0600 },
-        { "lat": 37.4600, "lng": 127.0600 },
-        { "lat": 37.4600, "lng": 127.0300 },
-        { "lat": 37.4900, "lng": 127.0300 }
+        { "lat": 37.490908, "lng": 127.004178 },
+        { "lat": 37.493748, "lng": 127.013678 },
+        { "lat": 37.499087, "lng": 127.012405 },
+        { "lat": 37.494185, "lng": 127.002130 },
+        { "lat": 37.490908, "lng": 127.004178 }
       ],
       "color": "#7c3aed",
       "fillColor": "#ddd6fe",

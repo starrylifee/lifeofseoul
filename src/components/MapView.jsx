@@ -1702,30 +1702,11 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       <div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded">
         📍 지도 정보: 레슨 {lessonId} | 중심: [{mapCenter[0]}, {mapCenter[1]}] | 줌: {mapZoom} | 
         범위: {lessonConfig.description} | 줌 제한: {mapMinZoom}~{mapMaxZoom} |
-        초기마커: {lessonData?.initialMarkers?.length || 0}개 | 🗺️ 서울시 경계 표시됨
+        초기마커: {lessonData?.initialMarkers?.length || 0}개
         {lessonId === '1' && <span> | 경기도 도시: {lessonData?.surroundingCities?.length || 0}개</span>}
       </div>
       
-      {/* 행정구역 경계 범례 - 모든 레슨에서 표시 */}
-      <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded">
-        <h3 className="font-bold text-red-800 mb-2">🗺️ 행정구역 경계 안내</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div className="flex items-center">
-            <div className="w-4 h-1 bg-red-500 mr-2 opacity-80" style={{borderTop: '2px dashed #FF0000'}}></div>
-            <span><strong className="text-red-700">서울특별시</strong> - 빨간색 점선 경계</span>
-          </div>
-          {lessonId === '1' && (
-            <div className="flex items-center">
-              <div className="w-4 h-4 border-2 border-blue-500 rounded-full mr-2 opacity-60"></div>
-              <span><strong className="text-blue-700">경기도 각 시</strong> - 파란색 원형</span>
-            </div>
-          )}
-        </div>
-        <p className="text-xs text-gray-600 mt-2">
-          💡 서울시의 실제 경계선을 통해 서울의 범위를 명확히 파악할 수 있습니다. 
-          {lessonId === '1' ? ' 1차시에서는 주변 경기도 도시들과의 위치 관계도 함께 학습합니다.' : ' 경계선을 클릭하면 서울시 상세 정보를 볼 수 있습니다.'}
-        </p>
-      </div>
+
       
       {/* Firebase 연결 상태 표시 */}
       {!isFirebaseAvailable && (

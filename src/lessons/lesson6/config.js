@@ -50,10 +50,6 @@ const lesson6Config = {
   
   // 함께 만들어가는 서울 - 다른 반과 공유
   collaborativeActivity: '다른 반 친구들이 추천하는 문화시설과 경험을 구경해보고, 가보고 싶은 곳이 있으면 댓글로 질문해보세요.',
-  resources: {
-    url: '', 
-    description: 'PDF 서울의 생활 22~23, 34~35쪽'
-  },
   questions: [
     {
       id: 'q1',

@@ -50,10 +50,6 @@ const lesson2Config = {
   
   // 함께 만들어가는 서울 - 다른 반과 공유
   collaborativeActivity: '다른 반 친구들이 찾은 하천과 다리들을 구경해보고, 내가 몰랐던 새로운 장소가 있으면 댓글로 질문해보세요.',
-  resources: {
-    url: '', 
-    description: 'PDF 서울의 생활 18~19쪽'
-  },
   questions: [
     {
       id: 'q1',

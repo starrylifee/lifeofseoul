@@ -10,7 +10,8 @@ export const LESSON_STEPS = {
   INTRO: 0,           // 소개
   BASIC: 1,           // 기초 배움
   GUIDED: 2,          // 가이드 활동
-  COLLABORATIVE: 3    // 함께 만들어가는 서울
+  QUIZ: 3,            // 확인문제
+  COLLABORATIVE: 4    // 함께 만들어가는 서울
 };
 
 // 활동 상태

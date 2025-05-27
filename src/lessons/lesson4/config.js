@@ -50,10 +50,6 @@ const lesson4Config = {
   
   // 함께 만들어가는 서울 - 다른 반과 공유
   collaborativeActivity: '다른 반 친구들의 여행 경험과 이용한 교통시설을 구경해보고, 가보고 싶은 곳이 있으면 댓글로 물어보세요.',
-  resources: {
-    url: '', 
-    description: 'PDF 서울의 생활 22~25쪽'
-  },
   questions: [
     {
       id: 'q1',

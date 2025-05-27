@@ -50,10 +50,6 @@ const lesson3Config = {
   
   // 함께 만들어가는 서울 - 다른 반과 공유
   collaborativeActivity: '다른 반 친구들이 찾은 지하철역과 이동 경로를 구경해보고, 새로운 교통 정보가 있으면 댓글로 공유해보세요.',
-  resources: {
-    url: '', 
-    description: 'PDF 서울의 생활 20~21쪽'
-  },
   questions: [
     {
       id: 'q1',
