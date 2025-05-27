@@ -21,6 +21,18 @@ L.Icon.Default.mergeOptions({
 // 기본 색상 (색상이 지정되지 않은 경우)
 const DEFAULT_COLOR = '#808080'; // 회색
 
+// 차시별 마커 안내 문구 (가이드 활동용)
+const LESSON_MARKER_PROMPTS = {
+  '1': '지도에서 원하는 지역을 클릭하여 "우리 집은 서울 ○○구에 있습니다" 또는 "○○시는 서울의 ○○쪽에 있습니다"라고 적어보세요:',
+  '2': '하천이나 다리 위치를 클릭하여 "우리 집 근처에는 ○○천이 흐릅니다" 또는 "○○대교는 ○○구와 ○○구를 연결합니다"라고 적어보세요:',
+  '3': '지하철역이나 도로를 클릭하여 "○○역 주변의 특징" 또는 "우리 집에서 학교까지 가는 교통수단"을 적어보세요:',
+  '4': '교통시설(기차역, 공항, 버스터미널) 위치를 클릭하여 "○○에서 어디로 갈 수 있는지" 또는 "가족여행 때 이용한 교통수단 경험"을 적어보세요:',
+  '5': '행정기관(구청, 주민센터 등) 위치를 클릭하여 "○○에서 하는 일" 또는 "가족과 방문한 행정기관 경험"을 적어보세요:',
+  '6': '문화시설(박물관, 공연장, 문화거리 등) 위치를 클릭하여 "○○에서 할 수 있는 활동" 또는 "가족과 방문한 문화시설 경험"을 적어보세요:',
+  '7': '궁궐 위치를 클릭하여 "가장 가보고 싶은 궁궐과 그 이유" 또는 "방문했던 궁궐에서 인상 깊었던 것"을 적어보세요:',
+  '8': '성문이나 성곽 위치를 클릭하여 "가장 가보고 싶은 성문과 그 이유" 또는 "성곽길을 걸어본 경험"을 적어보세요:'
+};
+
 // 행정구역 경계 데이터 (레슨 1용)
 const ADMINISTRATIVE_BOUNDARIES = {
   seoul: {
@@ -615,16 +627,16 @@ function MapEvents({ onMapClick }) {
   useMapEvents({
     click(e) {
       // Prevent adding marker if clicking on:
-      // 1. Existing interactive map layers (shapes, markers treated by leaflet-draw?)
-      // 2. The drawing toolbar
-      // 3. Inside a Leaflet popup
-      if (e.originalEvent.target.classList.contains('leaflet-interactive') ||
-          e.originalEvent.target.closest('.leaflet-draw-toolbar') ||
-          e.originalEvent.target.closest('.leaflet-popup')) {
-        console.log("Map click ignored (inside popup or control).");
+      // 1. Drawing toolbar
+      // 2. Inside a Leaflet popup
+      // 3. Existing markers (but allow polygon clicks for marker placement)
+      if (e.originalEvent.target.closest('.leaflet-draw-toolbar') ||
+          e.originalEvent.target.closest('.leaflet-popup') ||
+          e.originalEvent.target.closest('.leaflet-marker-icon')) {
+        console.log("Map click ignored (inside popup, control, or marker).");
         return; 
       }
-      // Only call onMapClick if the click is directly on the map background
+      // Allow clicks on polygons and map background for marker placement
       onMapClick(e.latlng);
     },
   });
@@ -715,7 +727,7 @@ const MapEventHandler = ({ onMapReady, children }) => {
   return children;
 };
 
-function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', studentId = null, mapConfig = null, activityData = null }) {
+function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', studentId = null, mapConfig = null, activityData = null, currentStep = null }) {
   // 상태 변수들
   const [mapInstance, setMapInstance] = useState(null);
   const [lessonData, setLessonData] = useState(null);
@@ -1068,8 +1080,16 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       isFirebaseAvailable,
       classId,
       selectedStudent,
-      selectedClass
+      selectedClass,
+      currentStep
     });
+
+    // 가이드 활동 단계(step 2)에서만 마커 추가 허용
+    if (currentStep !== 2) {
+      console.log("마커 추가는 '가이드 활동' 단계에서만 가능합니다.");
+      alert('마커 추가는 "가이드 활동" 단계에서만 가능합니다.');
+      return;
+    }
 
     // Firebase를 사용할 수 없는 경우 로컬에서만 마커 추가
     if (!isFirebaseAvailable) {
@@ -1118,9 +1138,9 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       return; 
     }
 
-    // Ask for confirmation before adding marker
+    // 차시별 맞춤 안내 문구 사용
     const promptText = isStudent() ? 
-      '이 위치에 대해 "서울은 ___의 ___쪽에 있습니다" 문장을 작성해주세요:' :
+      LESSON_MARKER_PROMPTS[lessonId] || '이 위치에 대한 설명을 작성해주세요:' :
       '이 위치에 마커를 추가하시겠습니까?';
       
     const description = prompt(promptText);
@@ -1779,9 +1799,16 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       )}
       
       {/* 학습 활동 안내 (학생용) */}
-      {isStudent() && (
+      {isStudent() && currentStep === 2 && (
         <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
-          📝 학습 활동: 지도에서 원하는 지역을 클릭하여 "서울은 ___의 ___쪽에 있습니다" 문장을 작성해보세요!
+          📝 가이드 활동: {LESSON_MARKER_PROMPTS[lessonId]?.replace(':', '') || '지도에서 원하는 지역을 클릭하여 미션을 수행해보세요!'}
+        </div>
+      )}
+      
+      {/* 마커 추가 불가 안내 (가이드 활동 단계가 아닐 때) */}
+      {isStudent() && currentStep !== 2 && (
+        <div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded">
+          ℹ️ 마커 추가는 "가이드 활동" 단계에서만 가능합니다. 현재는 지도를 관찰하고 학습해보세요.
         </div>
       )}
       
@@ -2029,11 +2056,6 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
               pathOptions={{
                 ...ADMINISTRATIVE_BOUNDARIES.seoul.style,
                 fillOpacity: lessonId === '1' ? 0.15 : 0 // 1차시에서만 내부 색깔 표시
-              }}
-              eventHandlers={{
-                click: lessonId === '1' ? undefined : (e) => {
-                  e.originalEvent.stopPropagation(); // 2~8차시에서는 클릭 이벤트 차단
-                }
               }}
             >
               {/* 1차시에서만 팝업 표시 */}

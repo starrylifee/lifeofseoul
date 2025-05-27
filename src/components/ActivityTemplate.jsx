@@ -191,7 +191,7 @@ function ActivityTemplate({ lessonConfig, children, lessonId, activityData, onSt
         <div className="mt-4">
           <h4 className="text-lg font-medium mb-2 text-gray-800">🗺️ 지도에서 확인하기</h4>
           <div className="border rounded-lg p-2">
-            {children}
+            {React.cloneElement(children, { currentStep })}
           </div>
         </div>
       </div>
@@ -247,7 +247,7 @@ function ActivityTemplate({ lessonConfig, children, lessonId, activityData, onSt
         <div className="mt-4">
           <h4 className="text-lg font-medium mb-2 text-gray-800">🗺️ 미션 수행하기</h4>
           <div className="border rounded-lg p-2">
-            {children}
+            {React.cloneElement(children, { currentStep })}
           </div>
         </div>
       </div>
@@ -265,7 +265,7 @@ function ActivityTemplate({ lessonConfig, children, lessonId, activityData, onSt
         
         {/* 퀴즈 컴포넌트가 여기에 렌더링됩니다 */}
         <div className="quiz-container">
-          {children}
+          {React.cloneElement(children, { currentStep })}
         </div>
       </div>
     );
@@ -297,7 +297,7 @@ function ActivityTemplate({ lessonConfig, children, lessonId, activityData, onSt
         <div className="mt-4">
           <h4 className="text-lg font-medium mb-2 text-gray-800">🗺️ 우리 반 활동 결과</h4>
           <div className="border rounded-lg p-2">
-            {children}
+            {React.cloneElement(children, { currentStep })}
           </div>
         </div>
       </div>
