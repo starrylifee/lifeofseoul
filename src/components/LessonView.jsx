@@ -19,15 +19,7 @@ function LessonView({ lessonConfig, lessonId, activityData }) {
     setCurrentStep(step);
   };
 
-  console.log("LessonView 렌더링:", {
-    lessonConfigTitle: lessonConfig?.title || "설정 없음",
-    lessonId,
-    hasMapConfig: !!lessonConfig?.mapConfig,
-    mapCenter: lessonConfig?.mapConfig?.center,
-    mapZoom: lessonConfig?.mapConfig?.zoom,
-    questionsCount: lessonConfig?.questions?.length || 0,
-    currentStep
-  });
+
 
   // 현재 단계에 따라 렌더링할 컴포넌트 결정
   const renderStepContent = () => {
@@ -39,6 +31,7 @@ function LessonView({ lessonConfig, lessonId, activityData }) {
           lessonId={lessonId} 
           activityData={activityData} 
           mapConfig={lessonConfig?.mapConfig}
+          currentStep={currentStep}
         />
       );
     }

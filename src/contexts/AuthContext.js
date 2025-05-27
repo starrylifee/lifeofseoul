@@ -34,9 +34,9 @@ export function AuthProvider({ children }) {
         if (userData.role === 'student') {
           setStudentNumber(userData.studentNumber);
         }
-        console.log("User data loaded:", userData);
+
       } else {
-        console.log("No user data found in Firestore");
+
       }
     } catch (error) {
       console.error("Error fetching user data:", error);
@@ -47,7 +47,7 @@ export function AuthProvider({ children }) {
   // 교사가 자신의 학급 학생들을 조회하는 함수
   const fetchClassStudents = async () => {
     if (!isTeacher() || !classId) {
-      console.log("교사가 아니거나 학급 정보가 없습니다.");
+
       return [];
     }
 
@@ -65,7 +65,7 @@ export function AuthProvider({ children }) {
         ...doc.data()
       }));
       
-      console.log(`${classId} 학급 학생 ${students.length}명 조회됨:`, students);
+
       return students;
     } catch (error) {
       console.error("학급 학생 조회 오류:", error);
@@ -76,7 +76,7 @@ export function AuthProvider({ children }) {
   // 같은 학급의 교사를 조회하는 함수 (학생용)
   const fetchClassTeacher = async () => {
     if (!isStudent() || !classId) {
-      console.log("학생이 아니거나 학급 정보가 없습니다.");
+
       return null;
     }
 
@@ -90,7 +90,7 @@ export function AuthProvider({ children }) {
       const teacherSnapshot = await getDocs(teacherQuery);
       if (!teacherSnapshot.empty) {
         const teacherData = teacherSnapshot.docs[0].data();
-        console.log(`${classId} 학급 교사 조회됨:`, teacherData);
+
         return {
           id: teacherSnapshot.docs[0].id,
           ...teacherData
@@ -119,7 +119,7 @@ export function AuthProvider({ children }) {
           setStudentNumber(null);
         }
         setLoading(false);
-        console.log("Auth State Changed, Current User:", user?.email);
+
       });
 
       // Unsubscribe on unmount
@@ -130,7 +130,7 @@ export function AuthProvider({ children }) {
       setLoading(false);
       
       // Firebase를 사용할 수 없는 경우 데모 모드로 실행
-      console.log("Firebase를 사용할 수 없습니다. 데모 모드로 실행합니다.");
+
     }
   }, []);
 

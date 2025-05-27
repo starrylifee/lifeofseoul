@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, FeatureGroup, CircleMarker, Polygon, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, FeatureGroup, CircleMarker, Polygon, Polyline, Tooltip } from 'react-leaflet';
 import { EditControl } from 'react-leaflet-draw';
 import L from 'leaflet'; // Import Leaflet library for custom icons if needed later
 import 'leaflet-draw/dist/leaflet.draw.css'; // Import drawing tool CSS
@@ -8,7 +8,7 @@ import 'leaflet-draw/dist/leaflet.draw.css'; // Import drawing tool CSS
 // Firebase Imports
 import { db } from '../firebase'; // Firestore instance
 import { useAuth } from '../contexts/AuthContext'; // Auth context
-import { doc, setDoc, onSnapshot, updateDoc, arrayUnion, arrayRemove, serverTimestamp, collection, getDocs, query, where } from "firebase/firestore";
+import { doc, setDoc, onSnapshot, updateDoc, arrayUnion, arrayRemove, serverTimestamp, collection, getDocs, query, where, getDoc } from "firebase/firestore";
 
 // Fix for default icon issue with webpack
 delete L.Icon.Default.prototype._getIconUrl;
@@ -51,7 +51,6 @@ const ADMINISTRATIVE_BOUNDARIES = {
       [37.588293, 126.800934],
       [37.591302, 126.799182],
       [37.593886, 126.798500],
-      [37.596432, 126.797137],
       [37.601639, 126.799961],
       [37.604917, 126.802395],
       [37.595206, 126.817459],
@@ -512,23 +511,7 @@ const ADMINISTRATIVE_BOUNDARIES = {
   ]
 };
 
-// 레슨별 지도 경계 설정
-const LESSON_BOUNDS = {
-  '1': {
-    // 경기도 포함 (서울 + 경기도) - 경계를 좀 더 넓게 설정
-    southWest: [36.8, 126.1],
-    northEast: [38.4, 128.0],
-    minZoom: 8,  // 경기도 전체가 보이는 최소 줌 레벨
-    maxZoom: 18  // 최대 줌 레벨
-  },
-  default: {
-    // 서울만 (레슨 2-9) - 서울 주변을 좀 더 여유롭게 설정
-    southWest: [37.3, 126.6],
-    northEast: [37.8, 127.4],
-    minZoom: 10, // 서울 전체가 보이는 최소 줌 레벨
-    maxZoom: 18  // 최대 줌 레벨
-  }
-};
+
 
 // 레슨별 지도 설정
 const LESSON_MAP_CONFIGS = {
@@ -633,7 +616,7 @@ function MapEvents({ onMapClick }) {
       if (e.originalEvent.target.closest('.leaflet-draw-toolbar') ||
           e.originalEvent.target.closest('.leaflet-popup') ||
           e.originalEvent.target.closest('.leaflet-marker-icon')) {
-        console.log("Map click ignored (inside popup, control, or marker).");
+
         return; 
       }
       // Allow clicks on polygons and map background for marker placement
@@ -643,78 +626,7 @@ function MapEvents({ onMapClick }) {
   return null;
 }
 
-// 커스텀 지도 컨트롤 컴포넌트
-const MapControls = ({ map, lessonConfig }) => {
-  const handleZoomIn = () => {
-    if (map) {
-      map.setZoom(Math.min(map.getZoom() + 1, lessonConfig.maxZoom));
-    }
-  };
 
-  const handleZoomOut = () => {
-    if (map) {
-      map.setZoom(Math.max(map.getZoom() - 1, lessonConfig.minZoom));
-    }
-  };
-
-  const handleFitBounds = () => {
-    if (map) {
-      map.fitBounds([lessonConfig.bounds.southWest, lessonConfig.bounds.northEast]);
-    }
-  };
-
-  const handleCurrentLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          if (map) {
-            map.setView([latitude, longitude], 15);
-          }
-        },
-        (error) => {
-          alert('현재 위치를 가져올 수 없습니다.');
-          console.error('Geolocation error:', error);
-        }
-      );
-    } else {
-      alert('이 브라우저는 위치 서비스를 지원하지 않습니다.');
-    }
-  };
-
-  return (
-    <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
-      <button
-        onClick={handleZoomIn}
-        className="bg-white hover:bg-gray-50 border border-gray-300 rounded-md p-2 shadow-md transition-colors"
-        title="확대"
-      >
-        <span className="text-lg font-bold">+</span>
-      </button>
-      <button
-        onClick={handleZoomOut}
-        className="bg-white hover:bg-gray-50 border border-gray-300 rounded-md p-2 shadow-md transition-colors"
-        title="축소"
-      >
-        <span className="text-lg font-bold">−</span>
-      </button>
-      <button
-        onClick={handleFitBounds}
-        className="bg-white hover:bg-gray-50 border border-gray-300 rounded-md p-2 shadow-md transition-colors"
-        title="전체 보기"
-      >
-        <span className="text-sm">🗺️</span>
-      </button>
-      <button
-        onClick={handleCurrentLocation}
-        className="bg-white hover:bg-gray-50 border border-gray-300 rounded-md p-2 shadow-md transition-colors"
-        title="현재 위치"
-      >
-        <span className="text-sm">📍</span>
-      </button>
-    </div>
-  );
-};
 
 // 지도 이벤트 및 참조 관리 컴포넌트
 const MapEventHandler = ({ onMapReady, children }) => {
@@ -727,9 +639,33 @@ const MapEventHandler = ({ onMapReady, children }) => {
   return children;
 };
 
+// 사용자 정의 지도 컨트롤 컴포넌트
+const MapControls = ({ map }) => {
+  if (!map) return null;
+  
+  const handleZoomIn = () => {
+    map.zoomIn();
+  };
+  
+  const handleZoomOut = () => {
+    map.zoomOut();
+  };
+  
+  const handleCenter = () => {
+    map.setView(map.options.center, map.options.zoom);
+  };
+
+  return (
+    <div className="map-controls">
+      <button onClick={handleZoomIn} className="map-control-button" title="확대">+</button>
+      <button onClick={handleZoomOut} className="map-control-button" title="축소">−</button>
+      <button onClick={handleCenter} className="map-control-button" title="중심으로">🗺️</button>
+    </div>
+  );
+};
+
 function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', studentId = null, mapConfig = null, activityData = null, currentStep = null }) {
   // 상태 변수들
-  const [mapInstance, setMapInstance] = useState(null);
   const [lessonData, setLessonData] = useState(null);
   const [markers, setMarkers] = useState([]);
   const [shapes, setShapes] = useState([]);
@@ -741,8 +677,17 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
   const [classStudents, setClassStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState('all');
   const [isFirebaseAvailable, setIsFirebaseAvailable] = useState(false); // Firebase 연결 상태
+  const [mapInstance, setMapInstance] = useState(null); // 지도 인스턴스 참조
   const markerPopupRef = useRef(); // Ref for marker popups
   const featureGroupRef = useRef(); // Ref for the FeatureGroup containing shapes
+  
+  // 선택된 마커와 모달 상태
+  const [selectedMarker, setSelectedMarker] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [modalMode, setModalMode] = useState('view'); // 'view' 또는 'edit'
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editContent, setEditContent] = useState('');
   
   // Auth 컨텍스트를 항상 호출 (Hook 규칙 준수)
   const authContext = useAuth();
@@ -764,14 +709,47 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
     }
   }, [authContext]);
 
-  // useCallback으로 함수들을 메모이제이션
-  const isTeacher = useCallback(() => {
-    return authContext?.isTeacher() || false;
-  }, [authContext]);
-
-  const isStudent = useCallback(() => {
-    return authContext?.isStudent() || false;
-  }, [authContext]);
+  // 교사/학생 권한 상태 관리
+  const [userRole, setUserRole] = useState('unknown'); // 'teacher', 'student', 'unknown'
+  
+  // 사용자 권한 확인 및 설정
+  useEffect(() => {
+    if (!currentUser || !authContext) {
+      setUserRole('unknown');
+      return;
+    }
+    
+    // 권한 확인 로직
+    try {
+      if (typeof authContext.isTeacher === 'function' && authContext.isTeacher()) {
+        setUserRole('teacher');
+        console.log("교사 권한이 확인되었습니다:", currentUser.email);
+      } else if (typeof authContext.isStudent === 'function' && authContext.isStudent()) {
+        setUserRole('student');
+        console.log("학생 권한이 확인되었습니다:", currentUser.email);
+      } else {
+        // userType 필드로 직접 확인 (대체 방법)
+        const userType = authContext.userType || currentUser.userType;
+        if (userType === 'teacher') {
+          setUserRole('teacher');
+          console.log("교사 권한이 확인되었습니다 (userType 필드):", currentUser.email);
+        } else if (userType === 'student') {
+          setUserRole('student');
+          console.log("학생 권한이 확인되었습니다 (userType 필드):", currentUser.email);
+        } else {
+          console.log("권한을 확인할 수 없습니다. 관리자에게 문의하세요:", currentUser.email);
+          setUserRole('unknown');
+        }
+      }
+    } catch (error) {
+      console.error("권한 확인 중 오류 발생:", error);
+      setUserRole('unknown');
+    }
+  }, [currentUser, authContext]);
+  
+  // 편의 함수
+  const isTeacher = () => userRole === 'teacher';
+  const isStudent = () => userRole === 'student';
 
   // 사용자 색상 정보 로드
   useEffect(() => {
@@ -821,7 +799,7 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       try {
         const response = await import(`../lessons/lesson${lessonId}/data.json`);
         setLessonData(response.default);
-        console.log("레슨 데이터 로드됨:", response.default);
+
         
         // 레슨 초기 데이터를 지도에 적용
         if (response.default) {
@@ -947,7 +925,6 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
   useEffect(() => {
     // Firebase를 사용할 수 없는 경우 빈 배열로 초기화하고 종료
     if (!isFirebaseAvailable) {
-      console.log("Firebase를 사용할 수 없습니다. 오프라인 모드로 실행합니다.");
       setMarkers([]);
       setShapes([]);
       return;
@@ -962,12 +939,12 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
     
     // 학생인 경우: 자신의 데이터만 로드
     if (isStudent()) {
-      console.log(`Setting up listener for: lessons/${lessonId}/classActivities/${classId}/students/${currentUser.uid}`);
+      
       
       const unsubscribe = onSnapshot(userActivityDocRef, (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          console.log("Firestore data received:", data);
+
           setMarkers(data.markers || []);
           setShapes(data.shapes || []);
         } else {
@@ -1002,7 +979,7 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
         const studentDocRef = getUserActivityDocRef(selectedStudent, targetClassId);
         if (!studentDocRef) return;
         
-        console.log(`교사가 학생 데이터 로드: lessons/${lessonId}/classActivities/${targetClassId}/students/${selectedStudent}`);
+
         
         const unsubscribe = onSnapshot(studentDocRef, (docSnap) => {
           if (docSnap.exists()) {
@@ -1028,7 +1005,7 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       else {
         const classActivitiesRef = collection(db, "lessons", String(lessonId), "classActivities", targetClassId, "students");
         
-        console.log(`교사가 반별 데이터 로드: lessons/${lessonId}/classActivities/${targetClassId}/students`);
+
         
         // 복잡한 병합 로직을 위해 한 번 데이터 로드 후 처리
         const fetchAllClassData = async () => {
@@ -1072,28 +1049,16 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
   // --- Event Handlers with Firestore Integration ---
 
   const handleMapClick = async (latlng) => {
-    console.log("Map clicked:", {
-      currentUser: currentUser?.email,
-      isStudent: isStudent(),
-      isTeacher: isTeacher(),
-      userActivityDocRef: !!userActivityDocRef,
-      isFirebaseAvailable,
-      classId,
-      selectedStudent,
-      selectedClass,
-      currentStep
-    });
+
 
     // 가이드 활동 단계(step 2)에서만 마커 추가 허용
     if (currentStep !== 2) {
-      console.log("마커 추가는 '가이드 활동' 단계에서만 가능합니다.");
       alert('마커 추가는 "가이드 활동" 단계에서만 가능합니다.');
       return;
     }
 
     // Firebase를 사용할 수 없는 경우 로컬에서만 마커 추가
     if (!isFirebaseAvailable) {
-      console.log("Firebase를 사용할 수 없습니다. 로컬에서만 마커를 추가합니다.");
       if (window.confirm('이 위치에 마커를 추가하시겠습니까? (오프라인 모드 - 저장되지 않습니다)')) {
         const newMarker = {
           id: Date.now(),
@@ -1186,6 +1151,81 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
     }
   };
 
+  // 마커 선택 핸들러 - 마커 클릭 시 모달 열기
+  const handleMarkerClick = (marker) => {
+    setSelectedMarker(marker);
+    setModalMode('view');
+    setEditTitle(marker.title || '');
+    setEditDescription(marker.description || '');
+    setEditContent(marker.content || '');
+    setShowModal(true);
+  };
+  
+  // 모달 닫기 처리
+  const handleCloseModal = () => {
+    setShowModal(false);
+    // 약간의 지연 후 선택된 마커 초기화 (애니메이션을 위해)
+    setTimeout(() => {
+      setSelectedMarker(null);
+      setEditingMarkerId(null);
+      setModalMode('view');
+    }, 200);
+  };
+
+  // 모달에서 편집 모드로 전환
+  const handleEditMode = () => {
+    setModalMode('edit');
+  };
+
+  // 모달에서 마커 삭제
+  const handleModalDelete = () => {
+    // 권한 확인 및 로그
+    console.log("마커 삭제 시도:", {
+      userRole,
+      isTeacherResult: isTeacher(),
+      markerId: selectedMarker.id,
+      markerUserId: selectedMarker.userId,
+      currentUserId: currentUser?.uid
+    });
+    
+    // 교사인 경우 다른 확인 메시지
+    const confirmMessage = isTeacher() && selectedMarker.userId !== currentUser?.uid
+      ? '교사 권한으로 이 마커를 삭제하시겠습니까? (학생 데이터가 삭제됩니다)'
+      : '정말로 이 마커를 삭제하시겠습니까?';
+    
+    if(window.confirm(confirmMessage)) {
+      try {
+        // 직접 권한 확인 로직
+        const canDelete = selectedMarker.userId === currentUser?.uid || userRole === 'teacher';
+        
+        if (!canDelete) {
+          alert('권한이 없습니다. 자신의 마커만 삭제할 수 있습니다.');
+          return;
+        }
+        
+        handleMarkerDelete(selectedMarker.id);
+        handleCloseModal();
+        console.log("마커 삭제 성공!");
+      } catch (error) {
+        console.error("마커 삭제 중 오류:", error);
+        alert('마커 삭제 중 오류가 발생했습니다.');
+      }
+    }
+  };
+
+  // 모달에서 마커 저장
+  const handleModalSave = () => {
+    const updateData = {
+      title: editTitle,
+      description: editDescription,
+      content: editContent
+    };
+    
+    handleSaveDescription(selectedMarker.id, updateData);
+    setModalMode('view');
+    handleCloseModal();
+  };
+
   const handleEditClick = (marker) => {
     // 마커 작성자이거나 교사인 경우에만 수정 허용
     if (marker.userId !== currentUser.uid && !isTeacher()) {
@@ -1206,11 +1246,9 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
     setCurrentDescription(marker.description || marker.title || '');
   };
 
-  const handleDescriptionChange = (e) => {
-    setCurrentDescription(e.target.value);
-  };
 
-  const handleSaveDescription = async (markerId) => {
+
+  const handleSaveDescription = async (markerId, updateData = null) => {
     // 교사가 다른 학생 데이터를 수정하는 경우 해당 학생의 docRef를 사용
     const docRefToUpdate = isTeacher() && selectedStudent !== 'all' && selectedStudent !== currentUser.uid 
       ? getUserActivityDocRef(selectedStudent, selectedClass)
@@ -1224,8 +1262,19 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
 
     const originalMarker = currentMarkers[markerIndex];
     
-    // 확장된 데이터 구조로 마커 업데이트
-    const updatedMarker = { 
+    // updateData가 제공된 경우 (편집 모드에서 호출) 또는 기본 description 업데이트
+    const updatedMarker = updateData ? {
+      ...originalMarker,
+      ...updateData,
+      title: updateData.title || (updateData.description && updateData.description.length > 50 ? updateData.description.substring(0, 50) + '...' : updateData.description) || originalMarker.title,
+      updatedAt: new Date().toISOString(),
+      // 수정자 정보 추가 (작성자가 아닌 경우)
+      ...(originalMarker.userId !== currentUser.uid && {
+        lastEditedBy: currentUser.uid,
+        lastEditedByName: currentUser.email.split('@')[0],
+        isEdited: true
+      })
+    } : {
       ...originalMarker, 
       title: currentDescription.length > 50 ? currentDescription.substring(0, 50) + '...' : currentDescription,
       description: currentDescription,
@@ -1246,8 +1295,12 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
 
     // Optimistically update local state first
     setMarkers(updatedMarkersArray);
-    setEditingMarkerId(null); 
-    setCurrentDescription('');
+    
+    // 기본 모드에서만 편집 상태 초기화
+    if (!updateData) {
+      setEditingMarkerId(null); 
+      setCurrentDescription('');
+    }
 
     try {
         await updateDoc(docRefToUpdate, {
@@ -1255,7 +1308,9 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
             lastUpdated: serverTimestamp()
         });
         console.log(`Marker ${markerId} updated in Firestore`);
-        markerPopupRef.current?.closePopup(); // Close popup AFTER successful save
+        if (markerPopupRef.current?.closePopup) {
+          markerPopupRef.current.closePopup(); // Close popup AFTER successful save
+        }
     } catch (error) {
         console.error("Error updating marker:", error);
         // Revert local state on error
@@ -1270,39 +1325,82 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
   };
 
   const handleMarkerDelete = async (markerId) => {
-    // 교사가 다른 학생 데이터를 수정하는 경우 해당 학생의 docRef를 사용
-    const docRefToUpdate = isTeacher() && selectedStudent !== 'all' && selectedStudent !== currentUser.uid 
-      ? getUserActivityDocRef(selectedStudent, selectedClass)
-      : userActivityDocRef;
-      
-    if (!docRefToUpdate) return;
+    console.log("마커 삭제 함수 실행:", {
+      markerId,
+      userRole,
+      isTeacherFunc: isTeacher()
+    });
     
-    // Find the exact marker object to remove (needed for arrayRemove)
-    const markerToDelete = markers.find(m => m.id === markerId);
-    if (!markerToDelete) return; 
-    
-    // 마커 작성자이거나 교사인 경우에만 삭제 허용
-    if (markerToDelete.userId !== currentUser.uid && !isTeacher()) {
-      alert('자신이 생성한 마커만 삭제할 수 있습니다.');
-      return;
-    }
-
-    // Optimistically update local state
-    const previousMarkers = [...markers];
-    setMarkers((prevMarkers) => prevMarkers.filter((m) => m.id !== markerId)); 
-
     try {
-        // Atomically remove the marker from the 'markers' array in Firestore
+      // 삭제할 마커 찾기
+      const markerToDelete = markers.find(m => m.id === markerId);
+      if (!markerToDelete) {
+        console.error("삭제할 마커를 찾을 수 없습니다.");
+        return;
+      }
+      
+      // 권한 검사 - userRole 상태 직접 사용
+      const isOwner = markerToDelete.userId === currentUser?.uid;
+      const hasTeacherRole = userRole === 'teacher';
+      
+      console.log("마커 삭제 권한 검사:", { isOwner, hasTeacherRole });
+      
+      if (!isOwner && !hasTeacherRole) {
+        alert('자신이 생성한 마커만 삭제할 수 있습니다.');
+        return;
+      }
+      
+      // 교사가 다른 학생 데이터를 수정하는 경우
+      let docRefToUpdate;
+      
+      if (hasTeacherRole && selectedStudent !== 'all' && selectedStudent !== currentUser?.uid) {
+        // 교사가 특정 학생 데이터 보기 중
+        docRefToUpdate = getUserActivityDocRef(selectedStudent, selectedClass);
+        console.log("교사가 학생 데이터 삭제:", { selectedStudent, docRef: !!docRefToUpdate });
+      } else {
+        // 자신의 데이터 삭제
+        docRefToUpdate = userActivityDocRef;
+        console.log("자신의 데이터 삭제:", { docRef: !!docRefToUpdate });
+      }
+      
+      if (!docRefToUpdate) {
+        console.error("문서 참조를 가져올 수 없습니다.");
+        alert('문서 참조를 가져올 수 없습니다.');
+        return;
+      }
+  
+      // Optimistically update local state
+      const previousMarkers = [...markers];
+      setMarkers((prevMarkers) => prevMarkers.filter((m) => m.id !== markerId));
+  
+      // Firestore에서 삭제
+      console.log("Firestore 업데이트 시도:", {
+        docRefPath: docRefToUpdate.path,
+        markerIdToDelete: markerId
+      });
+      
+      // 안전한 방법으로 마커 업데이트
+      const currentDoc = await getDoc(docRefToUpdate);
+      if (currentDoc.exists()) {
+        const docData = currentDoc.data();
+        const updatedMarkers = (docData.markers || []).filter(m => m.id !== markerId);
+        
         await updateDoc(docRefToUpdate, {
-            markers: arrayRemove(markerToDelete), 
-            lastUpdated: serverTimestamp()
+          markers: updatedMarkers,
+          lastUpdated: serverTimestamp()
         });
-        console.log(`Marker ${markerId} deleted from Firestore`);
+        
+        console.log(`Marker ${markerId} deleted from Firestore successfully`);
+      } else {
+        throw new Error("문서가 존재하지 않습니다");
+      }
     } catch (error) {
-        console.error("Error deleting marker:", error);
-        // Revert local state on error
-        setMarkers(previousMarkers);
-        // TODO: Show error to user
+      console.error("마커 삭제 중 오류:", error);
+      alert(`마커 삭제 중 오류가 발생했습니다: ${error.message}`);
+      
+      // 실패 시 상태 복원
+      const previousMarkers = [...markers];
+      setMarkers(previousMarkers);
     }
   };
 
@@ -1445,20 +1543,294 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
     });
   };
 
-  console.log("MapView 렌더링 중:", {
-    lessonData: lessonData ? "로드됨" : "로딩중",
-    mapCenter,
-    mapZoom,
-    mapBounds,
-    markersCount: markers.length,
-    initialMarkersCount: lessonData?.initialMarkers?.length || 0,
-    surroundingCitiesCount: lessonData?.surroundingCities?.length || 0,
-    isFirebaseAvailable,
-    currentUser: currentUser?.email || "not logged in",
-    authContext: authContext ? "available" : "not available",
-    selectedClass,
-    allClasses: allClasses.length
-  });
+
+
+  // 좋아요 기능
+  const handleLike = async (markerId) => {
+    if (!currentUser) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
+
+    try {
+      const markerIndex = markers.findIndex(m => m.id === markerId);
+      if (markerIndex === -1) return;
+
+      const marker = markers[markerIndex];
+      const likedBy = marker.likedBy || [];
+      const hasLiked = likedBy.includes(currentUser.uid);
+      
+      const updatedMarker = {
+        ...marker,
+        likes: hasLiked ? (marker.likes || 1) - 1 : (marker.likes || 0) + 1,
+        likedBy: hasLiked 
+          ? likedBy.filter(uid => uid !== currentUser.uid)
+          : [...likedBy, currentUser.uid],
+        updatedAt: new Date().toISOString()
+      };
+
+      const newMarkers = [...markers];
+      newMarkers[markerIndex] = updatedMarker;
+      setMarkers(newMarkers);
+
+      // 선택된 마커를 업데이트하여 UI 갱신
+      if(selectedMarker && selectedMarker.id === markerId) {
+        setSelectedMarker(updatedMarker);
+      }
+
+      // Firebase에 저장
+      if (isFirebaseAvailable) {
+        const docRefToUpdate = isTeacher() && selectedStudent !== 'all' && selectedStudent !== currentUser.uid 
+          ? getUserActivityDocRef(selectedStudent, selectedClass)
+          : userActivityDocRef;
+          
+        if (docRefToUpdate) {
+          await updateDoc(docRefToUpdate, {
+            markers: newMarkers,
+            lastUpdated: serverTimestamp()
+          });
+          console.log("좋아요 업데이트 완료:", updatedMarker.likes);
+        }
+      }
+    } catch (error) {
+      console.error('좋아요 처리 실패:', error);
+      alert('좋아요 처리에 실패했습니다.');
+    }
+  };
+
+  // 댓글 기능 (실제 저장 및 표시)
+  const handleComment = (markerId) => {
+    try {
+      // 현재 사용자 로그인 확인
+      if (!currentUser) {
+        alert('댓글을 작성하려면 로그인이 필요합니다.');
+        return;
+      }
+
+      const comment = prompt('댓글을 입력하세요:');
+      if (comment && comment.trim()) {
+        const markerIndex = markers.findIndex(m => m.id === markerId);
+        if (markerIndex === -1) return;
+
+        const marker = markers[markerIndex];
+        
+        // 새 댓글 객체 생성
+        const newComment = {
+          id: `comment_${Date.now()}_${currentUser.uid}`,
+          text: comment.trim(),
+          userId: currentUser.uid,
+          userName: currentUser.email ? currentUser.email.split('@')[0] : '익명',
+          createdAt: new Date().toISOString(),
+          likes: 0,
+          likedBy: []
+        };
+        
+        // 기존 댓글 배열에 새 댓글 추가
+        const existingComments = marker.comments || [];
+        const updatedComments = [...existingComments, newComment];
+        
+        // 마커 업데이트
+        const updatedMarker = {
+          ...marker,
+          comments: updatedComments,
+          commentCount: updatedComments.length,
+          updatedAt: new Date().toISOString()
+        };
+
+        // 마커 배열 업데이트
+        const newMarkers = [...markers];
+        newMarkers[markerIndex] = updatedMarker;
+        setMarkers(newMarkers);
+
+        // 선택된 마커를 업데이트하여 UI 갱신
+        if(selectedMarker && selectedMarker.id === markerId) {
+          setSelectedMarker(updatedMarker);
+        }
+
+        // Firebase에 저장
+        if (isFirebaseAvailable) {
+          const docRefToUpdate = isTeacher() && selectedStudent !== 'all' && selectedStudent !== currentUser.uid 
+            ? getUserActivityDocRef(selectedStudent, selectedClass)
+            : userActivityDocRef;
+            
+          if (docRefToUpdate) {
+            updateDoc(docRefToUpdate, {
+              markers: newMarkers,
+              lastUpdated: serverTimestamp()
+            }).then(() => {
+              console.log("댓글이 성공적으로 저장되었습니다.");
+            }).catch((error) => {
+              console.error("댓글 저장 실패:", error);
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('댓글 처리 실패:', error);
+      alert('댓글 처리에 실패했습니다.');
+    }
+  };
+  
+  // 댓글 좋아요 기능
+  const handleCommentLike = (markerId, commentId) => {
+    if (!currentUser) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
+    
+    try {
+      const markerIndex = markers.findIndex(m => m.id === markerId);
+      if (markerIndex === -1) return;
+
+      const marker = markers[markerIndex];
+      const comments = [...(marker.comments || [])];
+      const commentIndex = comments.findIndex(c => c.id === commentId);
+      
+      if (commentIndex === -1) return;
+      
+      const comment = comments[commentIndex];
+      const likedBy = comment.likedBy || [];
+      const hasLiked = likedBy.includes(currentUser.uid);
+      
+      // 좋아요 상태 업데이트
+      const updatedComment = {
+        ...comment,
+        likes: hasLiked ? Math.max(0, (comment.likes || 1) - 1) : (comment.likes || 0) + 1,
+        likedBy: hasLiked 
+          ? likedBy.filter(uid => uid !== currentUser.uid)
+          : [...likedBy, currentUser.uid]
+      };
+      
+      comments[commentIndex] = updatedComment;
+      
+      // 마커 업데이트
+      const updatedMarker = {
+        ...marker,
+        comments: comments,
+        updatedAt: new Date().toISOString()
+      };
+      
+      // 마커 배열 업데이트
+      const newMarkers = [...markers];
+      newMarkers[markerIndex] = updatedMarker;
+      setMarkers(newMarkers);
+      
+      // 선택된 마커를 업데이트하여 UI 갱신
+      if(selectedMarker && selectedMarker.id === markerId) {
+        setSelectedMarker(updatedMarker);
+      }
+      
+      // Firebase에 저장
+      if (isFirebaseAvailable) {
+        const docRefToUpdate = isTeacher() && selectedStudent !== 'all' && selectedStudent !== currentUser.uid 
+          ? getUserActivityDocRef(selectedStudent, selectedClass)
+          : userActivityDocRef;
+          
+        if (docRefToUpdate) {
+          updateDoc(docRefToUpdate, {
+            markers: newMarkers,
+            lastUpdated: serverTimestamp()
+          });
+        }
+      }
+    } catch (error) {
+      console.error('댓글 좋아요 처리 실패:', error);
+    }
+  };
+  
+  // 댓글 삭제 기능
+  const handleDeleteComment = (markerId, commentId) => {
+    if (!currentUser) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
+    
+    try {
+      const markerIndex = markers.findIndex(m => m.id === markerId);
+      if (markerIndex === -1) return;
+
+      const marker = markers[markerIndex];
+      const comments = [...(marker.comments || [])];
+      const commentIndex = comments.findIndex(c => c.id === commentId);
+      
+      if (commentIndex === -1) return;
+      
+      const comment = comments[commentIndex];
+      
+      // 댓글 작성자 또는 교사만 삭제 가능
+      const userIsTeacher = isTeacher();
+      console.log("삭제 권한 확인:", { userIsTeacher, commentUserId: comment.userId, currentUserId: currentUser.uid });
+      
+      if (comment.userId !== currentUser.uid && !userIsTeacher) {
+        alert('자신이 작성한 댓글만 삭제할 수 있습니다.');
+        return;
+      }
+      
+      // 교사가 다른 학생의 댓글을 삭제할 때 확인 메시지 변경
+      const confirmMessage = userIsTeacher && comment.userId !== currentUser.uid
+        ? '교사 권한으로 이 댓글을 삭제하시겠습니까?'
+        : '이 댓글을 삭제하시겠습니까?';
+      
+      if (!window.confirm(confirmMessage)) return;
+      
+      // 댓글 삭제
+      const updatedComments = comments.filter(c => c.id !== commentId);
+      
+      // 마커 업데이트
+      const updatedMarker = {
+        ...marker,
+        comments: updatedComments,
+        commentCount: updatedComments.length,
+        updatedAt: new Date().toISOString()
+      };
+      
+      // 마커 배열 업데이트
+      const newMarkers = [...markers];
+      newMarkers[markerIndex] = updatedMarker;
+      setMarkers(newMarkers);
+      
+      // 선택된 마커를 업데이트하여 UI 갱신
+      if(selectedMarker && selectedMarker.id === markerId) {
+        setSelectedMarker(updatedMarker);
+      }
+      
+      // Firebase에 저장
+      if (isFirebaseAvailable) {
+        const docRefToUpdate = isTeacher() && selectedStudent !== 'all' && selectedStudent !== currentUser.uid 
+          ? getUserActivityDocRef(selectedStudent, selectedClass)
+          : userActivityDocRef;
+          
+        if (docRefToUpdate) {
+          updateDoc(docRefToUpdate, {
+            markers: newMarkers,
+            lastUpdated: serverTimestamp()
+          });
+        }
+      }
+    } catch (error) {
+      console.error('댓글 삭제 실패:', error);
+      alert('댓글 삭제에 실패했습니다.');
+    }
+  };
+
+  // 공유 기능
+  const handleShare = (marker) => {
+    if (navigator.share) {
+      navigator.share({
+        title: marker.title || '서울 지도 마커',
+        text: marker.description,
+        url: window.location.href
+      });
+    } else {
+      // 클립보드에 복사
+      const shareText = `${marker.title || '서울 지도 마커'}: ${marker.description}`;
+      navigator.clipboard.writeText(shareText).then(() => {
+        alert('마커 정보가 클립보드에 복사되었습니다.');
+      }).catch(() => {
+        alert('공유 기능을 사용할 수 없습니다.');
+      });
+    }
+  };
 
   // 학생 조사 자료 팝업 컴포넌트
   const StudentResearchPopup = ({ marker, isEditing, onEdit, onSave, onCancel, onDelete, currentUser, isTeacher }) => {
@@ -1467,6 +1839,8 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
     const [content, setContent] = useState(marker.content || '');
     const [selectedImages, setSelectedImages] = useState([]);
     const [uploading, setUploading] = useState(false);
+    
+
 
     const handleImageSelect = (e) => {
       const files = Array.from(e.target.files);
@@ -1484,12 +1858,16 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
         // 현재는 임시로 파일명만 저장
         const imageUrls = selectedImages.map(file => `temp_${file.name}`);
         
+        // onSave 함수 호출
         await onSave(marker.id, {
           title,
           description,
           content,
           images: [...(marker.images || []), ...imageUrls]
         });
+        
+        // 편집 모드 종료
+        onCancel();
       } catch (error) {
         console.error('저장 실패:', error);
         alert('저장에 실패했습니다.');
@@ -1629,26 +2007,66 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
           </div>
         </div>
         
+
+        
         {/* 상호작용 버튼들 */}
-        <div className="flex gap-1 flex-wrap">
+        <div className="flex gap-1 flex-wrap" style={{ position: 'relative', zIndex: 1000 }}>
           {/* 수정/삭제 버튼 */}
           {(currentUser && (marker.userId === currentUser.uid || isTeacher())) && (
             <>
               <button 
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
                 onClick={(e) => { 
+                  e.preventDefault();
                   e.stopPropagation(); 
+                  e.stopImmediatePropagation();
+                  alert('수정 버튼 클릭됨!');
                   onEdit(marker); 
                 }}
-                className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600"
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                className="bg-blue-500 text-white px-3 py-2 rounded text-sm hover:bg-blue-600 font-medium"
+                style={{ 
+                  position: 'relative', 
+                  zIndex: 1001, 
+                  pointerEvents: 'auto',
+                  cursor: 'pointer',
+                  minWidth: '60px',
+                  minHeight: '32px'
+                }}
               >
                 ✏️ 수정
               </button>
               <button 
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
                 onClick={(e) => { 
+                  e.preventDefault();
                   e.stopPropagation(); 
+                  e.stopImmediatePropagation();
+                  alert('삭제 버튼 클릭됨!');
                   onDelete(marker.id); 
                 }}
-                className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600"
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                className="bg-red-500 text-white px-3 py-2 rounded text-sm hover:bg-red-600 font-medium"
+                style={{ 
+                  position: 'relative', 
+                  zIndex: 1001, 
+                  pointerEvents: 'auto',
+                  cursor: 'pointer',
+                  minWidth: '60px',
+                  minHeight: '32px'
+                }}
               >
                 🗑️ 삭제
               </button>
@@ -1657,20 +2075,54 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
           
           {/* 상호작용 버튼들 */}
           <button 
-            onClick={(e) => e.stopPropagation()}
-            className="bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-600"
+            onClick={(e) => { 
+              e.preventDefault();
+              e.stopPropagation(); 
+              handleLike(marker.id); 
+            }}
+            className={`px-2 py-1 rounded text-xs transition-colors ${
+              marker.likedBy?.includes(currentUser?.uid) 
+                ? 'bg-green-600 text-white' 
+                : 'bg-green-500 text-white hover:bg-green-600'
+            }`}
+            style={{ 
+              position: 'relative', 
+              zIndex: 1001, 
+              pointerEvents: 'auto',
+              cursor: 'pointer'
+            }}
           >
             👍 좋아요 {marker.likes || 0}
           </button>
           <button 
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => { 
+              e.preventDefault();
+              e.stopPropagation(); 
+              handleComment(marker.id); 
+            }}
             className="bg-purple-500 text-white px-2 py-1 rounded text-xs hover:bg-purple-600"
+            style={{ 
+              position: 'relative', 
+              zIndex: 1001, 
+              pointerEvents: 'auto',
+              cursor: 'pointer'
+            }}
           >
             💬 댓글 {marker.commentCount || 0}
           </button>
           <button 
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => { 
+              e.preventDefault();
+              e.stopPropagation(); 
+              handleShare(marker); 
+            }}
             className="bg-orange-500 text-white px-2 py-1 rounded text-xs hover:bg-orange-600"
+            style={{ 
+              position: 'relative', 
+              zIndex: 1001, 
+              pointerEvents: 'auto',
+              cursor: 'pointer'
+            }}
           >
             📤 공유
           </button>
@@ -1679,40 +2131,11 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
     );
   };
 
-  // 마커 저장 함수 개선 (이미지 포함)
-  const handleSaveMarkerWithData = async (markerId, data) => {
-    try {
-      const markerIndex = markers.findIndex(m => m.id === markerId);
-      if (markerIndex === -1) return;
 
-      const updatedMarker = {
-        ...markers[markerIndex],
-        ...data,
-        updatedAt: new Date().toISOString()
-      };
-
-      const newMarkers = [...markers];
-      newMarkers[markerIndex] = updatedMarker;
-      setMarkers(newMarkers);
-
-      // Firebase에 저장
-      if (isFirebaseAvailable && currentUser) {
-        const docRef = doc(db, 'lessons', lessonId, 'activities', currentUser.uid);
-        await updateDoc(docRef, {
-          markers: newMarkers,
-          lastUpdated: serverTimestamp()
-        });
-      }
-
-      setEditingMarkerId(null);
-      setCurrentDescription('');
-    } catch (error) {
-      console.error('마커 저장 실패:', error);
-    }
-  };
 
   // 지도 준비 완료 핸들러
   const handleMapReady = (map) => {
+    // 지도 인스턴스 저장
     setMapInstance(map);
   };
 
@@ -1823,7 +2246,7 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
           maxBounds={[mapBounds.southWest, mapBounds.northEast]}
           maxBoundsViscosity={0.5}
           style={{ height: '100%', width: '100%' }}
-          zoomControl={false} // 기본 줌 컨트롤 비활성화
+          zoomControl={true}
         >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -1831,6 +2254,9 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
           />
 
           <MapEventHandler onMapReady={handleMapReady}>
+            {/* 사용자 정의 맵 컨트롤 */}
+            {mapInstance && <MapControls map={mapInstance} />}
+            
             {/* Feature Group for Drawings */}
             <FeatureGroup ref={featureGroupRef}>
               <EditControl
@@ -2033,19 +2459,13 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
                   key={marker.id} 
                   position={marker.position}
                   icon={marker.color ? createClassMarkerIcon(marker.color) : undefined}
+                  eventHandlers={{
+                    click: () => handleMarkerClick(marker)
+                  }}
                 >
-                  <Popup ref={markerPopupRef} minWidth={320} maxWidth={400}>
-                    <StudentResearchPopup
-                      marker={marker}
-                      isEditing={editingMarkerId === marker.id}
-                      onEdit={handleEditClick}
-                      onSave={handleSaveMarkerWithData}
-                      onCancel={handleCancelEdit}
-                      onDelete={handleMarkerDelete}
-                      currentUser={currentUser}
-                      isTeacher={isTeacher}
-                    />
-                  </Popup>
+                  <Tooltip direction="top" offset={[0, -20]} opacity={0.9}>
+                    {marker.title || '마커 정보 보기'}
+                  </Tooltip>
                 </Marker>
               )
             ))}
@@ -2113,6 +2533,230 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
           </MapEventHandler>
         </MapContainer>
       </div>
+      
+      {/* 마커 정보 모달 - 완전히 새로 구현 */}
+      {showModal && selectedMarker && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[2000]"
+          onClick={handleCloseModal}
+        >
+          <div 
+            className="bg-white rounded-lg p-4 max-w-md w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 모달 헤더 */}
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold">
+                {modalMode === 'edit' ? '마커 수정' : (selectedMarker.title || '마커 정보')}
+              </h3>
+              <button
+                onClick={handleCloseModal}
+                className="text-gray-500 hover:text-gray-700 text-xl font-bold"
+              >
+                ✕
+              </button>
+            </div>
+            
+            {/* 모달 내용 */}
+            {modalMode === 'edit' ? (
+              // 편집 모드
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">제목</label>
+                  <input
+                    type="text"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="w-full border border-gray-300 rounded px-3 py-2"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">위치 설명</label>
+                  <textarea
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    className="w-full border border-gray-300 rounded px-3 py-2 h-24"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">조사 내용</label>
+                  <textarea
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    className="w-full border border-gray-300 rounded px-3 py-2 h-32"
+                  />
+                </div>
+                
+                <div className="flex gap-2 justify-end">
+                  <button
+                    onClick={handleModalSave}
+                    className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+                  >
+                    저장
+                  </button>
+                  <button
+                    onClick={() => setModalMode('view')}
+                    className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400"
+                  >
+                    취소
+                  </button>
+                </div>
+              </div>
+            ) : (
+              // 보기 모드
+              <div>
+                {/* 위치 설명 */}
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
+                  <div className="text-sm text-blue-600 font-medium mb-1">📍 위치 관계</div>
+                  <p className="text-gray-700">{selectedMarker.description}</p>
+                </div>
+                
+                {/* 조사 내용 */}
+                {selectedMarker.content && (
+                  <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded">
+                    <div className="text-sm text-green-600 font-medium mb-1">📝 조사 내용</div>
+                    <p className="text-gray-700 whitespace-pre-wrap">{selectedMarker.content}</p>
+                  </div>
+                )}
+                
+                {/* 작성자 정보 */}
+                <div className="mb-4 p-3 bg-gray-50 border border-gray-300 rounded">
+                  <div className="flex items-center">
+                    <div 
+                      className="w-3 h-3 rounded-full mr-2"
+                      style={{ backgroundColor: selectedMarker.color || DEFAULT_COLOR }}
+                    ></div>
+                    <span className="text-sm text-gray-600">
+                      {selectedMarker.classId} - {selectedMarker.userName || '익명'}
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    작성: {new Date(selectedMarker.createdAt).toLocaleString('ko-KR')}
+                  </div>
+                  {selectedMarker.updatedAt && selectedMarker.updatedAt !== selectedMarker.createdAt && (
+                    <div className="text-xs text-gray-500">
+                      수정: {new Date(selectedMarker.updatedAt).toLocaleString('ko-KR')}
+                    </div>
+                  )}
+                </div>
+                
+                {/* 버튼들 */}
+                <div className="flex gap-2 mt-4">
+                  {currentUser && (
+                    <>
+                      {/* 수정/삭제 버튼 - 작성자 또는 교사만 표시 */}
+                      {(selectedMarker.userId === currentUser.uid || isTeacher()) && (
+                        <div className="flex gap-2 w-full">
+                          <button
+                            onClick={handleEditMode}
+                            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 flex-1"
+                          >
+                            ✏️ 수정
+                          </button>
+                          <button
+                            onClick={handleModalDelete}
+                            className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 flex-1"
+                          >
+                            🗑️ 삭제
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+                
+                {/* 좋아요 버튼 - 별도 행에 배치 */}
+                <div className="mt-2">
+                  <button
+                    onClick={() => handleLike(selectedMarker.id)}
+                    className={`w-full px-4 py-2 rounded ${
+                      selectedMarker.likedBy?.includes(currentUser?.uid)
+                        ? 'bg-green-600 text-white'
+                        : 'bg-green-500 text-white hover:bg-green-600'
+                    }`}
+                  >
+                    👍 좋아요 {selectedMarker.likes || 0}
+                  </button>
+                </div>
+                
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={() => handleComment(selectedMarker.id)}
+                    className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 flex-1"
+                  >
+                    💬 댓글 작성
+                  </button>
+                  <button
+                    onClick={() => handleShare(selectedMarker)}
+                    className="bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600 flex-1"
+                  >
+                    📤 공유
+                  </button>
+                </div>
+                
+                {/* 댓글 목록 표시 */}
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium mb-2 flex items-center">
+                    <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs mr-2">
+                      {selectedMarker.commentCount || 0}
+                    </span>
+                    댓글
+                  </h4>
+                  
+                  {(!selectedMarker.comments || selectedMarker.comments.length === 0) ? (
+                    <div className="text-sm text-gray-500 italic p-3 bg-gray-50 rounded-lg text-center">
+                      아직 댓글이 없습니다. 첫 댓글을 작성해보세요!
+                    </div>
+                  ) : (
+                    <div className="space-y-3 max-h-60 overflow-y-auto p-1">
+                      {selectedMarker.comments.map((comment) => (
+                        <div key={comment.id} className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                          <div className="flex justify-between items-start">
+                            <div className="font-medium text-sm">{comment.userName}</div>
+                            <div className="text-xs text-gray-500">
+                              {new Date(comment.createdAt).toLocaleString('ko-KR', {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </div>
+                          </div>
+                          <div className="text-sm my-2">{comment.text}</div>
+                          <div className="flex justify-between items-center text-xs">
+                            <button
+                              onClick={() => handleCommentLike(selectedMarker.id, comment.id)}
+                              className={`flex items-center ${
+                                comment.likedBy?.includes(currentUser?.uid) 
+                                  ? 'text-blue-600' 
+                                  : 'text-gray-500 hover:text-blue-600'
+                              }`}
+                            >
+                              {comment.likedBy?.includes(currentUser?.uid) ? '❤️' : '🤍'} 좋아요 {comment.likes || 0}
+                            </button>
+                            
+                            {(currentUser && (comment.userId === currentUser.uid || isTeacher())) && (
+                              <button
+                                onClick={() => handleDeleteComment(selectedMarker.id, comment.id)}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                삭제
+                                {isTeacher() && comment.userId !== currentUser.uid && ' (교사)'}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
