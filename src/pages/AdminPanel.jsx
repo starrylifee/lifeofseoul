@@ -7,7 +7,10 @@ import {
   collection, 
   doc, 
   setDoc, 
-  getDocs
+  getDocs,
+  deleteDoc,
+  query,
+  where
 } from "firebase/firestore";
 import { db } from '../firebase';
 
@@ -25,6 +28,67 @@ function AdminPanel() {
   
   // 관리자 패스워드 설정 (실제로는 환경변수나 보안 방식으로 처리해야 함)
   const ADMIN_PASSWORD = '12345678'; // 예시용 간단한 비밀번호
+
+  // 기존 테스트 계정 삭제 함수
+  const deleteTestAccounts = async () => {
+    if (!window.confirm('정말로 모든 학생 계정과 테스트 교사 계정을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setMessage({ text: '테스트 계정 삭제 중...', isError: false });
+
+      // Firestore에서 테스트 계정들 찾기 및 삭제
+      const usersCollection = collection(db, "users");
+      const usersSnapshot = await getDocs(usersCollection);
+      
+      let deletedCount = 0;
+      const deletePromises = [];
+
+      usersSnapshot.docs.forEach(doc => {
+        const userData = doc.data();
+        const userId = userData.userId || '';
+        const email = userData.email || '';
+        
+        // 더 포괄적인 테스트 계정 패턴 확인
+        const isTestAccount = 
+          userId.includes('test') || 
+          userId.includes('student') || 
+          userId.includes('teacher') ||
+          userId.match(/^\d+학년\d+반-\d+$/) || // 기존 학급-번호 형식
+          userId.match(/^teacher\d+$/) ||
+          userId.match(/^student\d+$/) ||
+          email.includes('test') ||
+          email.includes('student') ||
+          email.includes('teacher') ||
+          userData.role === 'student' || // 모든 학생 계정
+          (userData.role === 'teacher' && userData.createdBy === 'admin'); // 관리자가 생성한 교사 계정
+        
+        if (isTestAccount) {
+          console.log('삭제 대상 계정:', { userId, email, role: userData.role });
+          deletePromises.push(deleteDoc(doc.ref));
+          deletedCount++;
+        }
+      });
+
+      await Promise.all(deletePromises);
+      
+      setMessage({ 
+        text: `${deletedCount}개의 테스트 계정이 삭제되었습니다.`, 
+        isError: false 
+      });
+      
+    } catch (error) {
+      console.error("Error deleting test accounts:", error);
+      setMessage({ 
+        text: '테스트 계정 삭제 중 오류가 발생했습니다: ' + error.message, 
+        isError: true 
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // 학급 목록 불러오기
   const fetchClasses = async () => {
@@ -118,7 +182,7 @@ function AdminPanel() {
     }
   };
 
-  // 학생 계정 생성 (1번부터 30번)
+  // 학생 계정 생성 (1번부터 30번) - 신답초 4학년5반 형식
   const createStudentAccounts = async (e) => {
     e.preventDefault();
     if (!selectedClass) {
@@ -126,8 +190,9 @@ function AdminPanel() {
       return;
     }
     
-    if (!studentPrefix || studentPrefix.length < 3) {
-      setMessage({ text: '학생 계정 접두어를 3자 이상 입력해주세요.', isError: true });
+    // 학교 이니셜 + 학년반 형식 (예: sd45 = 신답초 4학년5반)
+    if (!studentPrefix || studentPrefix.length < 4) {
+      setMessage({ text: '학생 계정 접두어를 4자 이상 입력해주세요. (예: sd45)', isError: true });
       return;
     }
 
@@ -160,10 +225,11 @@ function AdminPanel() {
         // 배치 내에서 순차적으로 생성
         for (let i = startIndex; i <= endIndex; i++) {
           const studentNumber = i;
-          const fullStudentId = `${selectedClass}-${studentNumber}`;
+          // 새로운 형식: 학교이니셜+학년반-번호 (예: sd45-1)
+          const fullStudentId = `${studentPrefix}-${studentNumber}`;
           // 이메일 주소에서 공백 제거
           const email = `${fullStudentId.replace(/\s+/g, '')}@example.com`;
-          const password = `${studentPrefix}${studentNumber}`;
+          const password = `student${studentNumber}`;
           
           try {
             console.log(`학생 ${studentNumber} 계정 생성 시도:`, { email, password: password.length + '자리' });
@@ -392,9 +458,27 @@ function AdminPanel() {
               </form>
             </div>
 
+            {/* 계정 관리 */}
+            <div className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+              <h3 className="text-lg font-semibold mb-4">계정 관리</h3>
+              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded">
+                <h4 className="text-md font-medium text-red-800 mb-2">⚠️ 위험한 작업</h4>
+                <p className="text-sm text-red-600 mb-3">
+                  기존 테스트 계정들을 모두 삭제합니다. 이 작업은 되돌릴 수 없습니다.
+                </p>
+                <button
+                  onClick={deleteTestAccounts}
+                  disabled={loading}
+                  className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+                >
+                  기존 테스트 계정 모두 삭제
+                </button>
+              </div>
+            </div>
+
             {/* 학생 계정 생성 */}
             <div className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
-              <h3 className="text-lg font-semibold mb-4">학생 계정 일괄 생성 (1-30번)</h3>
+              <h3 className="text-lg font-semibold mb-4">학생 계정 일괄 생성 (sd45-1 ~ sd45-30)</h3>
               <form onSubmit={createStudentAccounts}>
                 <div className="mb-4">
                   <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="selectedClassForStudents">
@@ -417,7 +501,7 @@ function AdminPanel() {
                 </div>
                 <div className="mb-4">
                   <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="studentPrefix">
-                    학생 비밀번호 접두어
+                    학교 이니셜 + 학년반
                   </label>
                   <input
                     className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
@@ -425,12 +509,12 @@ function AdminPanel() {
                     type="text"
                     value={studentPrefix}
                     onChange={(e) => setStudentPrefix(e.target.value)}
-                    placeholder="예: student (student1, student2 형태로 생성됨)"
+                    placeholder="예: sd45 (신답초 4학년5반)"
                     required
                   />
                   <p className="text-sm text-gray-600 mt-1">
-                    학생 계정 ID는 [학급명]-[번호] 형식으로 자동 생성됩니다.<br />
-                    비밀번호는 [접두어][번호] 형식으로 생성됩니다.
+                    학생 계정 ID는 [학교이니셜+학년반]-[번호] 형식으로 생성됩니다. (예: sd45-1)<br />
+                    비밀번호는 student[번호] 형식으로 생성됩니다. (예: student1)
                   </p>
                 </div>
                 <div className="flex items-center justify-end">
