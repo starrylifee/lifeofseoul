@@ -105,14 +105,25 @@ const lesson8Config = {
     }
   ],
   mapConfig: {
-    center: { "lat": 37.5665, "lng": 126.9780 },
-    zoom: 12,
+    center: { "lat": 37.5730, "lng": 126.9820 },
+    zoom: 13.5,
     bounds: {
-      north: 37.6013,
-      south: 37.5269,
-      east: 127.0190,
-      west: 126.9348
-    }
+      north: 37.6050,
+      south: 37.5400,
+      east: 127.0250,
+      west: 126.9250
+    },
+    maxBounds: {
+      north: 37.6200,
+      south: 37.5250,
+      east: 127.0350,
+      west: 126.9150
+    },
+    // 성곽과 마커 간의 거리를 확보하기 위한 최소 패딩 설정
+    padding: 1000,
+    // 지도 떨림 방지 설정
+    maxZoom: 16,
+    minZoom: 12
   }
 };
 

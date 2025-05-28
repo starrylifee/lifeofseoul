@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   getAuth, 
   createUserWithEmailAndPassword
@@ -25,64 +25,154 @@ function AdminPanel() {
   const [studentPrefix, setStudentPrefix] = useState('');
   const [isAdminAuthorized, setIsAdminAuthorized] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
+  const [teachers, setTeachers] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [showAccountManagement, setShowAccountManagement] = useState(false);
   
   // 관리자 패스워드 설정 (실제로는 환경변수나 보안 방식으로 처리해야 함)
   const ADMIN_PASSWORD = '12345678'; // 예시용 간단한 비밀번호
 
-  // 기존 테스트 계정 삭제 함수
-  const deleteTestAccounts = async () => {
-    if (!window.confirm('정말로 모든 학생 계정과 테스트 교사 계정을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+  // 계정 목록 불러오기
+  const fetchAccounts = async () => {
+    try {
+      const usersCollection = collection(db, "users");
+      const usersSnapshot = await getDocs(usersCollection);
+      
+      const teachersList = [];
+      const studentsList = [];
+      
+      usersSnapshot.docs.forEach(doc => {
+        const userData = { id: doc.id, ...doc.data() };
+        if (userData.role === 'teacher') {
+          teachersList.push(userData);
+        } else if (userData.role === 'student') {
+          studentsList.push(userData);
+        }
+      });
+      
+      setTeachers(teachersList.sort((a, b) => a.classId?.localeCompare(b.classId) || a.userId?.localeCompare(b.userId)));
+      setStudents(studentsList.sort((a, b) => a.classId?.localeCompare(b.classId) || a.studentNumber - b.studentNumber));
+    } catch (error) {
+      console.error("Error fetching accounts:", error);
+      setMessage({ text: '계정 목록을 불러오는데 실패했습니다: ' + error.message, isError: true });
+    }
+  };
+
+  // 개별 교사 삭제 (연결된 학생들도 함께 삭제)
+  const deleteTeacher = async (teacher) => {
+    const confirmMessage = `정말로 "${teacher.userId}" 교사를 삭제하시겠습니까?\n\n⚠️ 이 교사와 연결된 "${teacher.classId}" 학급의 모든 학생 계정도 함께 삭제됩니다.\n\n이 작업은 되돌릴 수 없습니다.`;
+    
+    if (!window.confirm(confirmMessage)) {
       return;
     }
 
     try {
       setLoading(true);
-      setMessage({ text: '테스트 계정 삭제 중...', isError: false });
+      setMessage({ text: '교사 및 연결된 학생 계정 삭제 중...', isError: false });
 
-      // Firestore에서 테스트 계정들 찾기 및 삭제
+      // 해당 교사의 학급에 속한 모든 학생 찾기
       const usersCollection = collection(db, "users");
-      const usersSnapshot = await getDocs(usersCollection);
+      const studentsQuery = query(usersCollection, where("classId", "==", teacher.classId), where("role", "==", "student"));
+      const studentsSnapshot = await getDocs(studentsQuery);
+      
+      let deletedStudents = 0;
+      
+      // 학생들 삭제
+      for (const studentDoc of studentsSnapshot.docs) {
+        await deleteDoc(studentDoc.ref);
+        deletedStudents++;
+      }
+      
+      // 교사 삭제
+      await deleteDoc(doc(db, "users", teacher.id));
+      
+      setMessage({ 
+        text: `교사 "${teacher.userId}"와 연결된 학생 ${deletedStudents}명이 삭제되었습니다.`, 
+        isError: false 
+      });
+      
+      // 목록 새로고침
+      fetchAccounts();
+      
+    } catch (error) {
+      console.error("Error deleting teacher:", error);
+      setMessage({ 
+        text: '교사 삭제 중 오류가 발생했습니다: ' + error.message, 
+        isError: true 
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 개별 학생 삭제
+  const deleteStudent = async (student) => {
+    if (!window.confirm(`정말로 "${student.userId}" 학생을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setMessage({ text: '학생 계정 삭제 중...', isError: false });
+
+      await deleteDoc(doc(db, "users", student.id));
+      
+      setMessage({ 
+        text: `학생 "${student.userId}"가 삭제되었습니다.`, 
+        isError: false 
+      });
+      
+      // 목록 새로고침
+      fetchAccounts();
+      
+    } catch (error) {
+      console.error("Error deleting student:", error);
+      setMessage({ 
+        text: '학생 삭제 중 오류가 발생했습니다: ' + error.message, 
+        isError: true 
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 기존 테스트 계정 삭제 함수 (학생 계정만)
+  const deleteTestAccounts = async () => {
+    if (!window.confirm('정말로 모든 학생 계정을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setMessage({ text: '학생 계정 삭제 중...', isError: false });
+
+      // Firestore에서 학생 계정들만 찾기 및 삭제
+      const usersCollection = collection(db, "users");
+      const studentsQuery = query(usersCollection, where("role", "==", "student"));
+      const studentsSnapshot = await getDocs(studentsQuery);
       
       let deletedCount = 0;
       const deletePromises = [];
 
-      usersSnapshot.docs.forEach(doc => {
-        const userData = doc.data();
-        const userId = userData.userId || '';
-        const email = userData.email || '';
-        
-        // 더 포괄적인 테스트 계정 패턴 확인
-        const isTestAccount = 
-          userId.includes('test') || 
-          userId.includes('student') || 
-          userId.includes('teacher') ||
-          userId.match(/^\d+학년\d+반-\d+$/) || // 기존 학급-번호 형식
-          userId.match(/^teacher\d+$/) ||
-          userId.match(/^student\d+$/) ||
-          email.includes('test') ||
-          email.includes('student') ||
-          email.includes('teacher') ||
-          userData.role === 'student' || // 모든 학생 계정
-          (userData.role === 'teacher' && userData.createdBy === 'admin'); // 관리자가 생성한 교사 계정
-        
-        if (isTestAccount) {
-          console.log('삭제 대상 계정:', { userId, email, role: userData.role });
-          deletePromises.push(deleteDoc(doc.ref));
-          deletedCount++;
-        }
+      studentsSnapshot.docs.forEach(doc => {
+        deletePromises.push(deleteDoc(doc.ref));
+        deletedCount++;
       });
 
       await Promise.all(deletePromises);
       
       setMessage({ 
-        text: `${deletedCount}개의 테스트 계정이 삭제되었습니다.`, 
+        text: `${deletedCount}개의 학생 계정이 삭제되었습니다.`, 
         isError: false 
       });
+      
+      // 목록 새로고침
+      fetchAccounts();
       
     } catch (error) {
       console.error("Error deleting test accounts:", error);
       setMessage({ 
-        text: '테스트 계정 삭제 중 오류가 발생했습니다: ' + error.message, 
+        text: '학생 계정 삭제 중 오류가 발생했습니다: ' + error.message, 
         isError: true 
       });
     } finally {
@@ -106,11 +196,17 @@ function AdminPanel() {
     }
   };
 
-  // 학급 생성
+  // 학급 생성 (학교-학급 형식)
   const createClass = async (e) => {
     e.preventDefault();
     if (!newClass.trim()) {
-      setMessage({ text: '학급명을 입력해주세요.', isError: true });
+      setMessage({ text: '학교-학급명을 입력해주세요.', isError: true });
+      return;
+    }
+
+    // 학교-학급 형식 검증
+    if (!newClass.includes(' ')) {
+      setMessage({ text: '학교명과 학급명을 공백으로 구분해서 입력해주세요. (예: 신답초 4학년 5반)', isError: true });
       return;
     }
 
@@ -167,12 +263,16 @@ function AdminPanel() {
         email,
         role: 'teacher',
         classId: selectedClass,
-        createdAt: new Date()
+        createdAt: new Date(),
+        createdBy: 'admin'
       });
       
       setMessage({ text: `교사 계정 (${fullTeacherId})이 생성되었습니다.`, isError: false });
       setTeacherId('');
       setTeacherPassword('');
+      
+      // 목록 새로고침
+      fetchAccounts();
       
       setLoading(false);
     } catch (error) {
@@ -182,7 +282,7 @@ function AdminPanel() {
     }
   };
 
-  // 학생 계정 생성 (1번부터 30번) - 신답초 4학년5반 형식
+  // 학생 계정 생성 (1번부터 30번)
   const createStudentAccounts = async (e) => {
     e.preventDefault();
     if (!selectedClass) {
@@ -295,6 +395,10 @@ function AdminPanel() {
       }
       
       setStudentPrefix('');
+      
+      // 목록 새로고침
+      fetchAccounts();
+      
       setLoading(false);
     } catch (error) {
       console.error("=== 학생 계정 생성 프로세스 전체 오류 ===");
@@ -312,13 +416,21 @@ function AdminPanel() {
     if (adminPassword === ADMIN_PASSWORD) {
       setIsAdminAuthorized(true);
       fetchClasses();
+      fetchAccounts();
     } else {
       setMessage({ text: '관리자 비밀번호가 일치하지 않습니다.', isError: true });
     }
   };
 
+  // 컴포넌트 마운트 시 계정 목록 불러오기
+  useEffect(() => {
+    if (isAdminAuthorized) {
+      fetchAccounts();
+    }
+  }, [isAdminAuthorized]);
+
   return (
-    <div className="max-w-4xl mx-auto p-4">
+    <div className="max-w-6xl mx-auto p-4">
       <h2 className="text-2xl font-bold mb-6">관리자 패널</h2>
       
       {!isAdminAuthorized ? (
@@ -358,177 +470,294 @@ function AdminPanel() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* 학급 생성 */}
-            <div className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
-              <h3 className="text-lg font-semibold mb-4">학급 생성</h3>
-              <form onSubmit={createClass}>
-                <div className="mb-4">
-                  <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="newClass">
-                    학급명
-                  </label>
-                  <input
-                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                    id="newClass"
-                    type="text"
-                    value={newClass}
-                    onChange={(e) => setNewClass(e.target.value)}
-                    placeholder="예: 4학년1반"
-                    required
-                  />
-                </div>
-                <div className="flex items-center justify-end">
-                  <button
-                    className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-                    type="submit"
-                    disabled={loading}
-                  >
-                    학급 생성
-                  </button>
-                </div>
-              </form>
+          {/* 탭 메뉴 */}
+          <div className="mb-6">
+            <div className="flex space-x-4">
+              <button
+                onClick={() => setShowAccountManagement(false)}
+                className={`px-4 py-2 rounded ${!showAccountManagement ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}`}
+              >
+                계정 생성
+              </button>
+              <button
+                onClick={() => setShowAccountManagement(true)}
+                className={`px-4 py-2 rounded ${showAccountManagement ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}`}
+              >
+                계정 관리
+              </button>
             </div>
+          </div>
 
-            {/* 교사 계정 생성 */}
-            <div className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
-              <h3 className="text-lg font-semibold mb-4">교사 계정 생성</h3>
-              <form onSubmit={createTeacherAccount}>
-                <div className="mb-4">
-                  <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="selectedClass">
-                    학급 선택
-                  </label>
-                  <select
-                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                    id="selectedClass"
-                    value={selectedClass}
-                    onChange={(e) => setSelectedClass(e.target.value)}
-                    required
-                  >
-                    <option value="">학급을 선택하세요</option>
-                    {classes.map((className) => (
-                      <option key={className} value={className}>
-                        {className}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="mb-4">
-                  <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="teacherId">
-                    교사 아이디
-                  </label>
-                  <input
-                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                    id="teacherId"
-                    type="text"
-                    value={teacherId}
-                    onChange={(e) => setTeacherId(e.target.value)}
-                    placeholder="교사 아이디 입력"
-                    required
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    선생님 아이디를 직접 입력하세요. 학급 정보는 별도로 저장됩니다.
-                  </p>
-                </div>
-                <div className="mb-4">
-                  <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="teacherPassword">
-                    교사 비밀번호
-                  </label>
-                  <input
-                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                    id="teacherPassword"
-                    type="password"
-                    value={teacherPassword}
-                    onChange={(e) => setTeacherPassword(e.target.value)}
-                    placeholder="최소 6자리 이상"
-                    required
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    비밀번호는 최소 6자리 이상이어야 합니다.
-                  </p>
-                </div>
-                <div className="flex items-center justify-end">
-                  <button
-                    className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-                    type="submit"
-                    disabled={loading}
-                  >
-                    교사 계정 생성
-                  </button>
-                </div>
-              </form>
-            </div>
-
-            {/* 계정 관리 */}
-            <div className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
-              <h3 className="text-lg font-semibold mb-4">계정 관리</h3>
-              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded">
-                <h4 className="text-md font-medium text-red-800 mb-2">⚠️ 위험한 작업</h4>
-                <p className="text-sm text-red-600 mb-3">
-                  기존 테스트 계정들을 모두 삭제합니다. 이 작업은 되돌릴 수 없습니다.
-                </p>
-                <button
-                  onClick={deleteTestAccounts}
-                  disabled={loading}
-                  className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-                >
-                  기존 테스트 계정 모두 삭제
-                </button>
+          {!showAccountManagement ? (
+            /* 계정 생성 탭 */
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* 학교-학급 생성 */}
+              <div className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+                <h3 className="text-lg font-semibold mb-4">학교-학급 생성</h3>
+                <form onSubmit={createClass}>
+                  <div className="mb-4">
+                    <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="newClass">
+                      학교-학급명
+                    </label>
+                    <input
+                      className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                      id="newClass"
+                      type="text"
+                      value={newClass}
+                      onChange={(e) => setNewClass(e.target.value)}
+                      placeholder="예: 신답초 4학년 5반"
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      학교명과 학급명을 공백으로 구분해서 입력하세요.
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-end">
+                    <button
+                      className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+                      type="submit"
+                      disabled={loading}
+                    >
+                      학급 생성
+                    </button>
+                  </div>
+                </form>
               </div>
-            </div>
 
-            {/* 학생 계정 생성 */}
-            <div className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
-              <h3 className="text-lg font-semibold mb-4">학생 계정 일괄 생성 (sd45-1 ~ sd45-30)</h3>
-              <form onSubmit={createStudentAccounts}>
-                <div className="mb-4">
-                  <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="selectedClassForStudents">
-                    학급 선택
-                  </label>
-                  <select
-                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                    id="selectedClassForStudents"
-                    value={selectedClass}
-                    onChange={(e) => setSelectedClass(e.target.value)}
-                    required
-                  >
-                    <option value="">학급을 선택하세요</option>
-                    {classes.map((className) => (
-                      <option key={className} value={className}>
-                        {className}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="mb-4">
-                  <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="studentPrefix">
-                    학교 이니셜 + 학년반
-                  </label>
-                  <input
-                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                    id="studentPrefix"
-                    type="text"
-                    value={studentPrefix}
-                    onChange={(e) => setStudentPrefix(e.target.value)}
-                    placeholder="예: sd45 (신답초 4학년5반)"
-                    required
-                  />
-                  <p className="text-sm text-gray-600 mt-1">
+              {/* 교사 계정 생성 */}
+              <div className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+                <h3 className="text-lg font-semibold mb-4">교사 계정 생성</h3>
+                <form onSubmit={createTeacherAccount}>
+                  <div className="mb-4">
+                    <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="selectedClass">
+                      학급 선택
+                    </label>
+                    <select
+                      className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                      id="selectedClass"
+                      value={selectedClass}
+                      onChange={(e) => setSelectedClass(e.target.value)}
+                      required
+                    >
+                      <option value="">학급을 선택하세요</option>
+                      {classes.map((className) => (
+                        <option key={className} value={className}>
+                          {className}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="teacherId">
+                      교사 아이디
+                    </label>
+                    <input
+                      className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                      id="teacherId"
+                      type="text"
+                      value={teacherId}
+                      onChange={(e) => setTeacherId(e.target.value)}
+                      placeholder="교사 아이디 입력"
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      선생님 아이디를 직접 입력하세요. 학급 정보는 별도로 저장됩니다.
+                    </p>
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="teacherPassword">
+                      교사 비밀번호
+                    </label>
+                    <input
+                      className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                      id="teacherPassword"
+                      type="password"
+                      value={teacherPassword}
+                      onChange={(e) => setTeacherPassword(e.target.value)}
+                      placeholder="최소 6자리 이상"
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      비밀번호는 최소 6자리 이상이어야 합니다.
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-end">
+                    <button
+                      className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+                      type="submit"
+                      disabled={loading}
+                    >
+                      교사 계정 생성
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* 학생 계정 생성 */}
+              <div className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4 md:col-span-2">
+                <h3 className="text-lg font-semibold mb-4">학생 계정 일괄 생성 (1번 ~ 30번)</h3>
+                <form onSubmit={createStudentAccounts}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="mb-4">
+                      <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="selectedClassForStudents">
+                        학급 선택
+                      </label>
+                      <select
+                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        id="selectedClassForStudents"
+                        value={selectedClass}
+                        onChange={(e) => setSelectedClass(e.target.value)}
+                        required
+                      >
+                        <option value="">학급을 선택하세요</option>
+                        {classes.map((className) => (
+                          <option key={className} value={className}>
+                            {className}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="mb-4">
+                      <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="studentPrefix">
+                        학교 이니셜 + 학년반
+                      </label>
+                      <input
+                        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        id="studentPrefix"
+                        type="text"
+                        value={studentPrefix}
+                        onChange={(e) => setStudentPrefix(e.target.value)}
+                        placeholder="예: sd45 (신답초 4학년5반)"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-4">
                     학생 계정 ID는 [학교이니셜+학년반]-[번호] 형식으로 생성됩니다. (예: sd45-1)<br />
                     비밀번호는 student[번호] 형식으로 생성됩니다. (예: student1)
                   </p>
-                </div>
-                <div className="flex items-center justify-end">
+                  <div className="flex items-center justify-end">
+                    <button
+                      className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+                      type="submit"
+                      disabled={loading}
+                    >
+                      학생 계정 일괄 생성 (30개)
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          ) : (
+            /* 계정 관리 탭 */
+            <div className="space-y-6">
+              {/* 일괄 삭제 */}
+              <div className="bg-white shadow-md rounded px-8 pt-6 pb-8">
+                <h3 className="text-lg font-semibold mb-4">일괄 삭제</h3>
+                <div className="p-4 bg-red-50 border border-red-200 rounded">
+                  <h4 className="text-md font-medium text-red-800 mb-2">⚠️ 위험한 작업</h4>
+                  <p className="text-sm text-red-600 mb-3">
+                    모든 학생 계정을 삭제합니다. 이 작업은 되돌릴 수 없습니다.
+                  </p>
                   <button
-                    className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-                    type="submit"
+                    onClick={deleteTestAccounts}
                     disabled={loading}
+                    className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
                   >
-                    학생 계정 일괄 생성
+                    모든 학생 계정 삭제
                   </button>
                 </div>
-              </form>
+              </div>
+
+              {/* 교사 계정 관리 */}
+              <div className="bg-white shadow-md rounded px-8 pt-6 pb-8">
+                <h3 className="text-lg font-semibold mb-4">교사 계정 관리</h3>
+                {teachers.length === 0 ? (
+                  <p className="text-gray-500">등록된 교사가 없습니다.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full table-auto">
+                      <thead>
+                        <tr className="bg-gray-50">
+                          <th className="px-4 py-2 text-left">교사 ID</th>
+                          <th className="px-4 py-2 text-left">학급</th>
+                          <th className="px-4 py-2 text-left">이메일</th>
+                          <th className="px-4 py-2 text-left">생성일</th>
+                          <th className="px-4 py-2 text-left">작업</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {teachers.map((teacher) => (
+                          <tr key={teacher.id} className="border-b">
+                            <td className="px-4 py-2">{teacher.userId}</td>
+                            <td className="px-4 py-2">{teacher.classId}</td>
+                            <td className="px-4 py-2">{teacher.email}</td>
+                            <td className="px-4 py-2">
+                              {teacher.createdAt?.toDate?.()?.toLocaleDateString() || '알 수 없음'}
+                            </td>
+                            <td className="px-4 py-2">
+                              <button
+                                onClick={() => deleteTeacher(teacher)}
+                                disabled={loading}
+                                className="bg-red-500 hover:bg-red-700 text-white text-sm font-bold py-1 px-3 rounded"
+                              >
+                                삭제 (학생 포함)
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* 학생 계정 관리 */}
+              <div className="bg-white shadow-md rounded px-8 pt-6 pb-8">
+                <h3 className="text-lg font-semibold mb-4">학생 계정 관리</h3>
+                {students.length === 0 ? (
+                  <p className="text-gray-500">등록된 학생이 없습니다.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full table-auto">
+                      <thead>
+                        <tr className="bg-gray-50">
+                          <th className="px-4 py-2 text-left">학생 ID</th>
+                          <th className="px-4 py-2 text-left">학급</th>
+                          <th className="px-4 py-2 text-left">번호</th>
+                          <th className="px-4 py-2 text-left">이메일</th>
+                          <th className="px-4 py-2 text-left">생성일</th>
+                          <th className="px-4 py-2 text-left">작업</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {students.map((student) => (
+                          <tr key={student.id} className="border-b">
+                            <td className="px-4 py-2">{student.userId}</td>
+                            <td className="px-4 py-2">{student.classId}</td>
+                            <td className="px-4 py-2">{student.studentNumber}</td>
+                            <td className="px-4 py-2">{student.email}</td>
+                            <td className="px-4 py-2">
+                              {student.createdAt?.toDate?.()?.toLocaleDateString() || '알 수 없음'}
+                            </td>
+                            <td className="px-4 py-2">
+                              <button
+                                onClick={() => deleteStudent(student)}
+                                disabled={loading}
+                                className="bg-red-500 hover:bg-red-700 text-white text-sm font-bold py-1 px-3 rounded"
+                              >
+                                삭제
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </>
       )}
     </div>

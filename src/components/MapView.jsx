@@ -6,9 +6,10 @@ import 'leaflet-draw/dist/leaflet.draw.css'; // Import drawing tool CSS
 // import 'leaflet/dist/leaflet.css'; // CSS는 index.html에 전역으로 포함됨
 
 // Firebase Imports
-import { db } from '../firebase'; // Firestore instance
+import { db, storage } from '../firebase'; // Firestore instance
 import { useAuth } from '../contexts/AuthContext'; // Auth context
 import { doc, setDoc, onSnapshot, updateDoc, arrayUnion, arrayRemove, serverTimestamp, collection, getDocs, query, where, getDoc } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // Fix for default icon issue with webpack
 delete L.Icon.Default.prototype._getIconUrl;
@@ -609,17 +610,14 @@ const LESSON_MAP_CONFIGS = {
 function MapEvents({ onMapClick }) {
   useMapEvents({
     click(e) {
-      // Prevent adding marker if clicking on:
-      // 1. Drawing toolbar
-      // 2. Inside a Leaflet popup
-      // 3. Existing markers (but allow polygon clicks for marker placement)
+      // 클릭 제한 완화 - 라인 클릭 시에도 마커 추가 가능하도록 수정
+      // 팝업과 툴바 클릭만 제외
       if (e.originalEvent.target.closest('.leaflet-draw-toolbar') ||
           e.originalEvent.target.closest('.leaflet-popup') ||
           e.originalEvent.target.closest('.leaflet-marker-icon')) {
-
         return; 
       }
-      // Allow clicks on polygons and map background for marker placement
+      // 라인과 폴리곤, 지도 배경 클릭 시 마커 추가 허용
       onMapClick(e.latlng);
     },
   });
@@ -688,6 +686,10 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editContent, setEditContent] = useState('');
+  // 이미지 업로드 관련 상태 추가
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [isUploading, setIsUploading] = useState(false);
   
   // Auth 컨텍스트를 항상 호출 (Hook 규칙 준수)
   const authContext = useAuth();
@@ -848,6 +850,36 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
 
   const userActivityDocRef = getUserActivityDocRef(currentUser?.uid);
 
+  // 학생 문서 초기화 - 문서가 없을 경우 빈 문서 생성
+  useEffect(() => {
+    const initializeStudentDocument = async () => {
+      if (!isFirebaseAvailable || !currentUser || !userActivityDocRef || !isStudent()) return;
+      
+      try {
+        // 문서 존재 여부 확인
+        const docSnap = await getDoc(userActivityDocRef);
+        
+        // 문서가 없으면 초기화
+        if (!docSnap.exists()) {
+          await setDoc(userActivityDocRef, { 
+            markers: [], 
+            shapes: [], 
+            userId: currentUser.uid,
+            classId: classId,
+            lessonId: String(lessonId), 
+            createdAt: serverTimestamp(), 
+            lastUpdated: serverTimestamp() 
+          });
+          console.log("학생 활동 문서 초기화 완료:", lessonId, classId, currentUser.uid);
+        }
+      } catch (error) {
+        console.error("학생 문서 초기화 오류:", error);
+      }
+    };
+    
+    initializeStudentDocument();
+  }, [currentUser, userActivityDocRef, isFirebaseAvailable, isStudent, lessonId, classId]);
+
   // 교사용: 전체 반 목록 로드
   useEffect(() => {
     const loadAllClasses = async () => {
@@ -937,34 +969,96 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       return;
     }
     
-    // 학생인 경우: 자신의 데이터만 로드
+    // 중복 마커 제거 유틸리티 함수
+    const removeDuplicateMarkers = (markers) => {
+      const seen = new Set();
+      return markers.filter(marker => {
+        if (!marker.id) return true; // ID가 없는 경우 보존
+        if (seen.has(marker.id)) return false; // 이미 본 ID면 제외
+        seen.add(marker.id); // ID 추적
+        return true;
+      });
+    };
+    
+    // 학생인 경우: 자신의 데이터와 반 전체 데이터 모두 로드 (수정된 부분)
     if (isStudent()) {
-      
-      
+      // 학생 자신의 데이터 불러오기
       const unsubscribe = onSnapshot(userActivityDocRef, (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-
-          setMarkers(data.markers || []);
-          setShapes(data.shapes || []);
+          const myMarkers = (data.markers || []).map(marker => ({
+            ...marker,
+            isOwnMarker: true, // 자신의 마커 표시
+            color: marker.color || getUserColor(currentUser.uid) || DEFAULT_COLOR
+          }));
+          
+          // 반 전체 데이터 불러오기 함수
+          const loadClassData = async () => {
+            try {
+              const classActivitiesRef = collection(db, "lessons", String(lessonId), "classActivities", classId, "students");
+              const querySnapshot = await getDocs(classActivitiesRef);
+              
+              let allClassMarkers = [];
+              // 중복 ID 추적을 위한 Set
+              const markerIds = new Set(myMarkers.map(m => m.id));
+              
+              querySnapshot.forEach((doc) => {
+                // 자신의 데이터는 제외
+                if (doc.id === currentUser.uid) return;
+                
+                const data = doc.data();
+                if (data.markers) {
+                  // 중복되지 않은 마커만 추가
+                  const uniqueMarkers = data.markers.filter(marker => !markerIds.has(marker.id));
+                  
+                  // 사용된 ID 추적
+                  uniqueMarkers.forEach(marker => markerIds.add(marker.id));
+                  
+                  const classMarkersWithUser = uniqueMarkers.map(marker => ({
+                    ...marker,
+                    isOwnMarker: false, // 다른 학생의 마커
+                    color: marker.color || getUserColor(doc.id) || DEFAULT_COLOR,
+                    // 명시적으로 댓글 데이터를 보존하여 매핑
+                    comments: marker.comments || [],
+                    commentCount: marker.commentCount || (marker.comments ? marker.comments.length : 0),
+                    // 모든 마커 메타데이터 보존
+                    likes: marker.likes || 0,
+                    likedBy: marker.likedBy || []
+                  }));
+                  allClassMarkers = [...allClassMarkers, ...classMarkersWithUser];
+                }
+              });
+              
+              console.log(`로드된 마커: 내 마커 ${myMarkers.length}개, 다른 학생 마커 ${allClassMarkers.length}개`);
+              
+              // 자신의 마커와 반 전체 마커 결합 (중복 제거 로직 추가)
+              const combinedMarkers = [...myMarkers, ...allClassMarkers];
+              const uniqueMarkers = removeDuplicateMarkers(combinedMarkers);
+              setMarkers(uniqueMarkers);
+              setShapes(data.shapes || []);
+            } catch (error) {
+              console.error("반 전체 데이터 로드 오류:", error);
+              // 실패 시 자신의 마커만 표시
+              setMarkers(removeDuplicateMarkers(myMarkers));
+              setShapes(data.shapes || []);
+            }
+          };
+          
+          // 초기 로드
+          loadClassData();
+          
+          // 실시간 업데이트는 복잡해질 수 있으므로 30초마다 갱신 (실제 상황에 맞게 조정)
+          const intervalId = setInterval(loadClassData, 15000);
+          
+          return () => { 
+            clearInterval(intervalId); 
+          };
         } else {
-          console.log("No activity data found for user in this lesson, initializing.");
-          // Initialize document if it doesn't exist for this user/lesson
-          setDoc(userActivityDocRef, { 
-            markers: [], 
-            shapes: [], 
-            userId: currentUser.uid,
-            classId: classId,
-            lessonId: String(lessonId), 
-            createdAt: serverTimestamp(), 
-            lastUpdated: serverTimestamp() 
-          }, { merge: true });
           setMarkers([]);
           setShapes([]);
         }
       }, (error) => {
         console.error("Error listening to Firestore:", error);
-        // TODO: Show error to user
       });
       
       return () => { unsubscribe(); };
@@ -989,7 +1083,8 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
               classId: targetClassId,
               color: marker.color || getUserColor(selectedStudent) || DEFAULT_COLOR
             }));
-            setMarkers(markersWithClass);
+            // 중복 제거 로직 추가
+            setMarkers(removeDuplicateMarkers(markersWithClass));
             setShapes(data.shapes || []);
           } else {
             setMarkers([]);
@@ -1015,20 +1110,39 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
             let allMarkers = [];
             let allShapes = [];
             
+            // 중복 ID 추적을 위한 Set
+            const markerIds = new Set();
+            
             querySnapshot.forEach((doc) => {
               const data = doc.data();
               if (data.markers) {
-                const markersWithClass = data.markers.map(marker => ({
+                // 중복되지 않은 마커만 추가
+                const uniqueMarkers = data.markers.filter(marker => !markerIds.has(marker.id));
+                
+                // 사용된 ID 추적
+                uniqueMarkers.forEach(marker => markerIds.add(marker.id));
+                
+                const markersWithClass = uniqueMarkers.map(marker => ({
                   ...marker,
                   classId: targetClassId,
-                  color: getUserColor(currentUser.uid)
+                  userId: doc.id, // 학생 ID 보존
+                  color: marker.color || getUserColor(doc.id) || DEFAULT_COLOR,
+                  // 명시적으로 댓글 데이터를 보존하여 매핑
+                  comments: marker.comments || [],
+                  commentCount: marker.commentCount || (marker.comments ? marker.comments.length : 0),
+                  // 모든 마커 메타데이터 보존
+                  likes: marker.likes || 0,
+                  likedBy: marker.likedBy || []
                 }));
                 allMarkers = [...allMarkers, ...markersWithClass];
               }
               if (data.shapes) allShapes = [...allShapes, ...data.shapes];
             });
             
-            setMarkers(allMarkers);
+            console.log(`교사 모드 - 로드된 마커: ${allMarkers.length}개`);
+            
+            // 중복 제거 로직 추가
+            setMarkers(removeDuplicateMarkers(allMarkers));
             setShapes(allShapes);
           } catch (error) {
             console.error("Error loading class data:", error);
@@ -1094,6 +1208,27 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
         alert('학생 데이터 참조를 찾을 수 없습니다.');
         return;
       }
+      
+      // 문서가 존재하는지 확인하고, 없으면 초기화
+      try {
+        const docSnap = await getDoc(userActivityDocRef);
+        if (!docSnap.exists()) {
+          await setDoc(userActivityDocRef, { 
+            markers: [], 
+            shapes: [], 
+            userId: currentUser.uid,
+            classId: classId,
+            lessonId: String(lessonId), 
+            createdAt: serverTimestamp(), 
+            lastUpdated: serverTimestamp() 
+          });
+          console.log("마커 추가 전 문서 초기화 완료");
+        }
+      } catch (error) {
+        console.error("마커 추가 전 문서 확인/초기화 오류:", error);
+        alert('데이터 초기화에 실패했습니다. 다시 시도해 주세요.');
+        return;
+      }
     }
     
     // 교사인 경우: 다른 학생/반 데이터를 보고 있을 때는 추가 불가
@@ -1103,9 +1238,9 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       return; 
     }
 
-    // 차시별 맞춤 안내 문구 사용
+    // 차시별 맞춤 안내 문구 + 공통 안내문구 추가
     const promptText = isStudent() ? 
-      LESSON_MARKER_PROMPTS[lessonId] || '이 위치에 대한 설명을 작성해주세요:' :
+      (LESSON_MARKER_PROMPTS[lessonId] || '이 위치에 대한 설명을 작성해주세요:') + '\n\n아래 칸에 번호를 적어주세요. 추가된 마커를 수정해서 내용을 미션에 맞게 채워보세요.' :
       '이 위치에 마커를 추가하시겠습니까?';
       
     const description = prompt(promptText);
@@ -1158,6 +1293,8 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
     setEditTitle(marker.title || '');
     setEditDescription(marker.description || '');
     setEditContent(marker.content || '');
+    // 이미지 URL 배열도 상태에 저장
+    setSelectedImages([]);
     setShowModal(true);
   };
   
@@ -1174,11 +1311,29 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
 
   // 모달에서 편집 모드로 전환
   const handleEditMode = () => {
+    // 작성자 또는 교사만 수정 가능하도록 체크
+    if (selectedMarker && selectedMarker.userId !== currentUser?.uid && !isTeacher()) {
+      alert('자신이 작성한 마커만 수정할 수 있습니다.');
+      return;
+    }
+    
+    // 교사가 다른 학생의 마커를 수정할 때 확인
+    if (selectedMarker && selectedMarker.userId !== currentUser?.uid && isTeacher()) {
+      if (!window.confirm('교사 권한으로 이 마커를 수정하시겠습니까?')) {
+        return;
+      }
+    }
+    
     setModalMode('edit');
+    setEditTitle(selectedMarker?.title || '');
+    setEditDescription(selectedMarker?.description || '');
+    setEditContent(selectedMarker?.content || '');
   };
 
   // 모달에서 마커 삭제
   const handleModalDelete = () => {
+    if (!selectedMarker) return;
+    
     // 권한 확인 및 로그
     console.log("마커 삭제 시도:", {
       userRole,
@@ -1188,21 +1343,23 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       currentUserId: currentUser?.uid
     });
     
-    // 교사인 경우 다른 확인 메시지
-    const confirmMessage = isTeacher() && selectedMarker.userId !== currentUser?.uid
-      ? '교사 권한으로 이 마커를 삭제하시겠습니까? (학생 데이터가 삭제됩니다)'
+    // 작성자 또는 교사만 삭제 가능하도록 체크
+    if (selectedMarker.userId !== currentUser?.uid && !isTeacher()) {
+      alert('자신이 작성한 마커만 삭제할 수 있습니다.');
+      return;
+    }
+    
+    // 교사인 경우 학생 마커도 삭제 가능
+    const isOwner = selectedMarker.userId === currentUser?.uid;
+    const hasTeacherPermission = isTeacher();
+    
+    // 교사가 학생 마커 삭제 시 확인 메시지
+    const confirmMessage = hasTeacherPermission && !isOwner
+      ? '교사 권한으로 이 학생 마커를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.'
       : '정말로 이 마커를 삭제하시겠습니까?';
     
     if(window.confirm(confirmMessage)) {
       try {
-        // 직접 권한 확인 로직
-        const canDelete = selectedMarker.userId === currentUser?.uid || userRole === 'teacher';
-        
-        if (!canDelete) {
-          alert('권한이 없습니다. 자신의 마커만 삭제할 수 있습니다.');
-          return;
-        }
-        
         handleMarkerDelete(selectedMarker.id);
         handleCloseModal();
         console.log("마커 삭제 성공!");
@@ -1214,16 +1371,34 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
   };
 
   // 모달에서 마커 저장
-  const handleModalSave = () => {
-    const updateData = {
-      title: editTitle,
-      description: editDescription,
-      content: editContent
-    };
-    
-    handleSaveDescription(selectedMarker.id, updateData);
-    setModalMode('view');
-    handleCloseModal();
+  const handleModalSave = async () => {
+    try {
+      // 로딩 상태 표시
+      setIsUploading(true);
+
+      let imageUrls = [];
+      // 이미지 파일이 선택되었다면 업로드
+      if (selectedFiles && selectedFiles.length > 0) {
+        imageUrls = await uploadImagesToStorage(selectedFiles, selectedMarker.id);
+      }
+
+      const updateData = {
+        title: editTitle,
+        description: editDescription,
+        content: editContent,
+        // 기존 이미지와 새 이미지 URL 합치기
+        images: [...(selectedMarker.images || []), ...imageUrls]
+      };
+      
+      await handleSaveDescription(selectedMarker.id, updateData);
+      setModalMode('view');
+      handleCloseModal();
+    } catch (error) {
+      console.error('마커 저장 오류:', error);
+      alert('마커 저장 중 오류가 발생했습니다.');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleEditClick = (marker) => {
@@ -1325,11 +1500,7 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
   };
 
   const handleMarkerDelete = async (markerId) => {
-    console.log("마커 삭제 함수 실행:", {
-      markerId,
-      userRole,
-      isTeacherFunc: isTeacher()
-    });
+    console.log("마커 삭제 함수 호출:", markerId);
     
     try {
       // 삭제할 마커 찾기
@@ -1339,7 +1510,7 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
         return;
       }
       
-      // 권한 검사 - userRole 상태 직접 사용
+      // 권한 검사 개선 - 교사는 모든 마커 삭제 가능
       const isOwner = markerToDelete.userId === currentUser?.uid;
       const hasTeacherRole = userRole === 'teacher';
       
@@ -1350,17 +1521,17 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
         return;
       }
       
-      // 교사가 다른 학생 데이터를 수정하는 경우
+      // 마커 소유자의 문서 참조 가져오기
       let docRefToUpdate;
       
-      if (hasTeacherRole && selectedStudent !== 'all' && selectedStudent !== currentUser?.uid) {
-        // 교사가 특정 학생 데이터 보기 중
-        docRefToUpdate = getUserActivityDocRef(selectedStudent, selectedClass);
-        console.log("교사가 학생 데이터 삭제:", { selectedStudent, docRef: !!docRefToUpdate });
+      if (hasTeacherRole && !isOwner) {
+        // 교사가 학생 마커 삭제 - 해당 학생의 문서 참조 가져오기
+        docRefToUpdate = doc(db, "lessons", String(lessonId), "classActivities", classId, "students", markerToDelete.userId);
+        console.log("교사가 학생 마커 삭제:", { markerUserId: markerToDelete.userId, docRef: !!docRefToUpdate });
       } else {
-        // 자신의 데이터 삭제
+        // 자신의 마커 삭제
         docRefToUpdate = userActivityDocRef;
-        console.log("자신의 데이터 삭제:", { docRef: !!docRefToUpdate });
+        console.log("자신의 마커 삭제:", { docRef: !!docRefToUpdate });
       }
       
       if (!docRefToUpdate) {
@@ -1560,12 +1731,16 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       const likedBy = marker.likedBy || [];
       const hasLiked = likedBy.includes(currentUser.uid);
       
+      // 좋아요 상태 업데이트 - likedBy 배열 기반으로 처리
+      const updatedLikedBy = hasLiked 
+        ? likedBy.filter(uid => uid !== currentUser.uid)
+        : [...likedBy, currentUser.uid];
+      
       const updatedMarker = {
         ...marker,
-        likes: hasLiked ? (marker.likes || 1) - 1 : (marker.likes || 0) + 1,
-        likedBy: hasLiked 
-          ? likedBy.filter(uid => uid !== currentUser.uid)
-          : [...likedBy, currentUser.uid],
+        // 좋아요 수는 항상 likedBy 배열의 길이로 설정
+        likes: updatedLikedBy.length,
+        likedBy: updatedLikedBy,
         updatedAt: new Date().toISOString()
       };
 
@@ -1580,16 +1755,73 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
 
       // Firebase에 저장
       if (isFirebaseAvailable) {
-        const docRefToUpdate = isTeacher() && selectedStudent !== 'all' && selectedStudent !== currentUser.uid 
-          ? getUserActivityDocRef(selectedStudent, selectedClass)
-          : userActivityDocRef;
-          
+        // 1. 자신의 문서에 저장
+        const docRefToUpdate = userActivityDocRef;
         if (docRefToUpdate) {
           await updateDoc(docRefToUpdate, {
             markers: newMarkers,
             lastUpdated: serverTimestamp()
           });
           console.log("좋아요 업데이트 완료:", updatedMarker.likes);
+        }
+        
+        // 2. 마커 주인의 문서에도 좋아요 상태 업데이트 (다른 학생의 마커인 경우)
+        if (marker.userId !== currentUser.uid) {
+          // 마커 작성자의 문서 경로 생성
+          const markerOwnerDocRef = doc(db, "lessons", String(lessonId), "classActivities", marker.classId, "students", marker.userId);
+          
+          try {
+            // 마커 주인의 문서에서 최신 데이터 가져오기
+            const ownerDocSnap = await getDoc(markerOwnerDocRef);
+            
+            if (ownerDocSnap.exists()) {
+              const ownerData = ownerDocSnap.data();
+              const ownerMarkers = ownerData.markers || [];
+              
+              // 해당 마커 찾기
+              const ownerMarkerIndex = ownerMarkers.findIndex(m => m.id === markerId);
+              
+              if (ownerMarkerIndex !== -1) {
+                // 마커 주인의 문서에서 해당 마커 가져오기
+                const ownerMarker = ownerMarkers[ownerMarkerIndex];
+                const ownerLikedBy = ownerMarker.likedBy || [];
+                
+                // 좋아요 상태 업데이트
+                const updatedOwnerLikedBy = hasLiked
+                  ? ownerLikedBy.filter(uid => uid !== currentUser.uid)
+                  : [...ownerLikedBy, currentUser.uid];
+                
+                // 업데이트된 마커 생성
+                const updatedOwnerMarker = {
+                  ...ownerMarker,
+                  likes: updatedOwnerLikedBy.length,
+                  likedBy: updatedOwnerLikedBy,
+                  updatedAt: new Date().toISOString()
+                };
+                
+                // 마커 주인의 마커 배열 업데이트
+                const updatedOwnerMarkers = [
+                  ...ownerMarkers.slice(0, ownerMarkerIndex),
+                  updatedOwnerMarker,
+                  ...ownerMarkers.slice(ownerMarkerIndex + 1)
+                ];
+                
+                // 마커 주인의 문서 업데이트
+                await updateDoc(markerOwnerDocRef, {
+                  markers: updatedOwnerMarkers,
+                  lastUpdated: serverTimestamp()
+                });
+                
+                console.log("마커 주인 문서의 좋아요 업데이트 완료:", updatedOwnerMarker.likes);
+              } else {
+                console.error("마커 주인의 문서에서 해당 마커를 찾을 수 없습니다");
+              }
+            } else {
+              console.error("마커 주인의 문서가 존재하지 않습니다");
+            }
+          } catch (ownerError) {
+            console.error("마커 주인 문서 업데이트 오류:", ownerError);
+          }
         }
       }
     } catch (error) {
@@ -1614,9 +1846,12 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
 
         const marker = markers[markerIndex];
         
+        // 고유한 댓글 ID 생성 - 더 안전한 형식으로 생성
+        const uniqueId = `comment_${Date.now()}_${Math.random().toString(36).substring(2, 10)}_${currentUser.uid.substring(0, 6)}`;
+        
         // 새 댓글 객체 생성
         const newComment = {
-          id: `comment_${Date.now()}_${currentUser.uid}`,
+          id: uniqueId,
           text: comment.trim(),
           userId: currentUser.uid,
           userName: currentUser.email ? currentUser.email.split('@')[0] : '익명',
@@ -1649,18 +1884,77 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
 
         // Firebase에 저장
         if (isFirebaseAvailable) {
-          const docRefToUpdate = isTeacher() && selectedStudent !== 'all' && selectedStudent !== currentUser.uid 
-            ? getUserActivityDocRef(selectedStudent, selectedClass)
-            : userActivityDocRef;
-            
+          // 1. 먼저 자신의 문서에 댓글 저장 (댓글 작성자 본인)
+          const docRefToUpdate = userActivityDocRef;
+          
           if (docRefToUpdate) {
             updateDoc(docRefToUpdate, {
               markers: newMarkers,
               lastUpdated: serverTimestamp()
             }).then(() => {
-              console.log("댓글이 성공적으로 저장되었습니다.");
+              console.log("내 문서에 댓글이 성공적으로 저장되었습니다.");
             }).catch((error) => {
               console.error("댓글 저장 실패:", error);
+            });
+          }
+          
+          // 2. 마커 주인의 문서에도 댓글 저장 (다른 학생의 마커에 댓글을 달았을 경우)
+          if (marker.userId !== currentUser.uid) {
+            console.log("다른 학생의 마커에 댓글 저장 시도:", marker.userId);
+            
+            // 마커 작성자의 문서 경로 생성
+            const markerOwnerDocRef = doc(db, "lessons", String(lessonId), "classActivities", marker.classId, "students", marker.userId);
+            
+            // 마커 주인의 문서에서 데이터 가져오기
+            getDoc(markerOwnerDocRef).then((docSnap) => {
+              if (docSnap.exists()) {
+                const ownerData = docSnap.data();
+                const ownerMarkers = ownerData.markers || [];
+                
+                // 해당 마커 찾기
+                const ownerMarkerIndex = ownerMarkers.findIndex(m => m.id === markerId);
+                
+                if (ownerMarkerIndex !== -1) {
+                  // 마커 주인의 문서에서 해당 마커 업데이트
+                  const ownerMarker = ownerMarkers[ownerMarkerIndex];
+                  const ownerComments = ownerMarker.comments || [];
+                  
+                  // 새 댓글 추가
+                  const updatedOwnerComments = [...ownerComments, newComment];
+                  
+                  // 마커 업데이트
+                  const updatedOwnerMarker = {
+                    ...ownerMarker,
+                    comments: updatedOwnerComments,
+                    commentCount: updatedOwnerComments.length,
+                    updatedAt: new Date().toISOString()
+                  };
+                  
+                  // 마커 배열 업데이트
+                  const updatedOwnerMarkers = [
+                    ...ownerMarkers.slice(0, ownerMarkerIndex),
+                    updatedOwnerMarker,
+                    ...ownerMarkers.slice(ownerMarkerIndex + 1)
+                  ];
+                  
+                  // 마커 주인의 문서 업데이트
+                  updateDoc(markerOwnerDocRef, {
+                    markers: updatedOwnerMarkers,
+                    lastUpdated: serverTimestamp()
+                  }).then(() => {
+                    console.log("마커 주인의 문서에 댓글이 성공적으로 저장되었습니다.");
+                  }).catch((error) => {
+                    console.error("마커 주인의 문서에 댓글 저장 실패:", error);
+                  });
+                } else {
+                  console.error("마커 주인의 문서에서 해당 마커를 찾을 수 없습니다.", markerId);
+                  console.log("마커 주인의 마커 ID들:", ownerMarkers.map(m => m.id));
+                }
+              } else {
+                console.error("마커 주인의 문서가 존재하지 않습니다.");
+              }
+            }).catch((error) => {
+              console.error("마커 주인의 문서 조회 실패:", error);
             });
           }
         }
@@ -1722,14 +2016,98 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       
       // Firebase에 저장
       if (isFirebaseAvailable) {
-        const docRefToUpdate = isTeacher() && selectedStudent !== 'all' && selectedStudent !== currentUser.uid 
-          ? getUserActivityDocRef(selectedStudent, selectedClass)
-          : userActivityDocRef;
+        // 1. 자신의 문서에서 좋아요 업데이트
+        const docRefToUpdate = userActivityDocRef;
           
         if (docRefToUpdate) {
           updateDoc(docRefToUpdate, {
             markers: newMarkers,
             lastUpdated: serverTimestamp()
+          }).then(() => {
+            console.log("내 문서에서 댓글 좋아요가 성공적으로 업데이트되었습니다.");
+          }).catch((error) => {
+            console.error("댓글 좋아요 업데이트 실패:", error);
+          });
+        }
+        
+        // 2. 마커 주인의 문서에서도 좋아요 업데이트 (다른 학생의 마커에 달린 댓글인 경우)
+        if (marker.userId !== currentUser.uid) {
+          // 마커 작성자의 문서 경로 생성
+          const markerOwnerDocRef = doc(db, "lessons", String(lessonId), "classActivities", marker.classId, "students", marker.userId);
+          
+          // 마커 주인의 문서에서 데이터 가져오기
+          getDoc(markerOwnerDocRef).then((docSnap) => {
+            if (docSnap.exists()) {
+              const ownerData = docSnap.data();
+              const ownerMarkers = ownerData.markers || [];
+              
+              // 해당 마커 찾기
+              const ownerMarkerIndex = ownerMarkers.findIndex(m => m.id === markerId);
+              
+              if (ownerMarkerIndex !== -1) {
+                // 마커 주인의 문서에서 해당 마커 업데이트
+                const ownerMarker = ownerMarkers[ownerMarkerIndex];
+                const ownerComments = ownerMarker.comments || [];
+                
+                // 해당 댓글 찾기
+                const ownerCommentIndex = ownerComments.findIndex(c => c.id === commentId);
+                
+                if (ownerCommentIndex !== -1) {
+                  // 댓글 좋아요 업데이트
+                  const ownerComment = ownerComments[ownerCommentIndex];
+                  const ownerLikedBy = ownerComment.likedBy || [];
+                  const ownerHasLiked = ownerLikedBy.includes(currentUser.uid);
+                  
+                  // 좋아요 상태 업데이트 (이 부분은 항상 위의 로직과 동일하게 유지)
+                  const updatedOwnerComment = {
+                    ...ownerComment,
+                    likes: ownerHasLiked ? Math.max(0, (ownerComment.likes || 1) - 1) : (ownerComment.likes || 0) + 1,
+                    likedBy: ownerHasLiked 
+                      ? ownerLikedBy.filter(uid => uid !== currentUser.uid)
+                      : [...ownerLikedBy, currentUser.uid]
+                  };
+                  
+                  // 새로운 댓글 배열 생성
+                  const updatedOwnerComments = [
+                    ...ownerComments.slice(0, ownerCommentIndex),
+                    updatedOwnerComment,
+                    ...ownerComments.slice(ownerCommentIndex + 1)
+                  ];
+                  
+                  // 마커 업데이트
+                  const updatedOwnerMarker = {
+                    ...ownerMarker,
+                    comments: updatedOwnerComments,
+                    updatedAt: new Date().toISOString()
+                  };
+                  
+                  // 마커 배열 업데이트
+                  const updatedOwnerMarkers = [
+                    ...ownerMarkers.slice(0, ownerMarkerIndex),
+                    updatedOwnerMarker,
+                    ...ownerMarkers.slice(ownerMarkerIndex + 1)
+                  ];
+                  
+                  // 마커 주인의 문서 업데이트
+                  updateDoc(markerOwnerDocRef, {
+                    markers: updatedOwnerMarkers,
+                    lastUpdated: serverTimestamp()
+                  }).then(() => {
+                    console.log("마커 주인의 문서에서 댓글 좋아요가 성공적으로 업데이트되었습니다.");
+                  }).catch((error) => {
+                    console.error("마커 주인의 문서에서 댓글 좋아요 업데이트 실패:", error);
+                  });
+                } else {
+                  console.error("마커 주인의 문서에서 해당 댓글을 찾을 수 없습니다.");
+                }
+              } else {
+                console.error("마커 주인의 문서에서 해당 마커를 찾을 수 없습니다.");
+              }
+            } else {
+              console.error("마커 주인의 문서가 존재하지 않습니다.");
+            }
+          }).catch((error) => {
+            console.error("마커 주인의 문서 조회 실패:", error);
           });
         }
       }
@@ -1796,14 +2174,74 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       
       // Firebase에 저장
       if (isFirebaseAvailable) {
-        const docRefToUpdate = isTeacher() && selectedStudent !== 'all' && selectedStudent !== currentUser.uid 
-          ? getUserActivityDocRef(selectedStudent, selectedClass)
-          : userActivityDocRef;
+        // 1. 자신의 문서에서 댓글 삭제
+        const docRefToUpdate = userActivityDocRef;
           
         if (docRefToUpdate) {
           updateDoc(docRefToUpdate, {
             markers: newMarkers,
             lastUpdated: serverTimestamp()
+          }).then(() => {
+            console.log("내 문서에서 댓글이 성공적으로 삭제되었습니다.");
+          }).catch((error) => {
+            console.error("댓글 삭제 실패:", error);
+          });
+        }
+        
+        // 2. 마커 주인의 문서에서도 댓글 삭제 (다른 학생의 마커에 달린 댓글인 경우)
+        if (marker.userId !== currentUser.uid) {
+          // 마커 작성자의 문서 경로 생성
+          const markerOwnerDocRef = doc(db, "lessons", String(lessonId), "classActivities", marker.classId, "students", marker.userId);
+          
+          // 마커 주인의 문서에서 데이터 가져오기
+          getDoc(markerOwnerDocRef).then((docSnap) => {
+            if (docSnap.exists()) {
+              const ownerData = docSnap.data();
+              const ownerMarkers = ownerData.markers || [];
+              
+              // 해당 마커 찾기
+              const ownerMarkerIndex = ownerMarkers.findIndex(m => m.id === markerId);
+              
+              if (ownerMarkerIndex !== -1) {
+                // 마커 주인의 문서에서 해당 마커 업데이트
+                const ownerMarker = ownerMarkers[ownerMarkerIndex];
+                const ownerComments = ownerMarker.comments || [];
+                
+                // 댓글 삭제
+                const updatedOwnerComments = ownerComments.filter(c => c.id !== commentId);
+                
+                // 마커 업데이트
+                const updatedOwnerMarker = {
+                  ...ownerMarker,
+                  comments: updatedOwnerComments,
+                  commentCount: updatedOwnerComments.length,
+                  updatedAt: new Date().toISOString()
+                };
+                
+                // 마커 배열 업데이트
+                const updatedOwnerMarkers = [
+                  ...ownerMarkers.slice(0, ownerMarkerIndex),
+                  updatedOwnerMarker,
+                  ...ownerMarkers.slice(ownerMarkerIndex + 1)
+                ];
+                
+                // 마커 주인의 문서 업데이트
+                updateDoc(markerOwnerDocRef, {
+                  markers: updatedOwnerMarkers,
+                  lastUpdated: serverTimestamp()
+                }).then(() => {
+                  console.log("마커 주인의 문서에서 댓글이 성공적으로 삭제되었습니다.");
+                }).catch((error) => {
+                  console.error("마커 주인의 문서에서 댓글 삭제 실패:", error);
+                });
+              } else {
+                console.error("마커 주인의 문서에서 해당 마커를 찾을 수 없습니다.");
+              }
+            } else {
+              console.error("마커 주인의 문서가 존재하지 않습니다.");
+            }
+          }).catch((error) => {
+            console.error("마커 주인의 문서 조회 실패:", error);
           });
         }
       }
@@ -1844,8 +2282,14 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
 
     const handleImageSelect = (e) => {
       const files = Array.from(e.target.files);
-      if (files.length + (marker.images?.length || 0) > 5) {
-        alert('최대 5개의 이미지만 업로드할 수 있습니다.');
+      if (files.length > 1) {
+        alert('이미지는 1개만 업로드할 수 있습니다.');
+        e.target.value = ''; // 파일 선택 초기화
+        return;
+      }
+      if (files.length + (marker.images?.length || 0) > 1) {
+        alert('이미지는 최대 1개만 업로드할 수 있습니다. 기존 이미지를 삭제 후 시도해주세요.');
+        e.target.value = ''; // 파일 선택 초기화
         return;
       }
       setSelectedImages(files);
@@ -2137,6 +2581,58 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
   const handleMapReady = (map) => {
     // 지도 인스턴스 저장
     setMapInstance(map);
+  };
+
+  // 이미지 업로드 함수
+  const uploadImagesToStorage = async (files, markerId) => {
+    if (!files || files.length === 0) return [];
+
+    try {
+      const imageUrls = [];
+      
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const fileExtension = file.name.split('.').pop();
+        const fileName = `markers/${markerId}/${Date.now()}_${Math.random().toString(36).substring(2, 10)}.${fileExtension}`;
+        const storageRef = ref(storage, fileName);
+        
+        // 파일 업로드
+        await uploadBytes(storageRef, file);
+        
+        // 다운로드 URL 가져오기
+        const downloadUrl = await getDownloadURL(storageRef);
+        imageUrls.push(downloadUrl);
+        
+        console.log(`이미지 ${i+1}/${files.length} 업로드 완료:`, downloadUrl);
+      }
+      
+      return imageUrls;
+    } catch (error) {
+      console.error('이미지 업로드 오류:', error);
+      throw error;
+    }
+  };
+
+  // 이미지 파일 선택 핸들러
+  const handleImageSelect = (e) => {
+    const files = Array.from(e.target.files);
+    
+    // 이미지를 1개로 제한
+    if (files.length > 1) {
+      alert('이미지는 1개만 업로드할 수 있습니다.');
+      e.target.value = ''; // 파일 선택 초기화
+      return;
+    }
+    
+    // 이미 이미지가 있는 경우 확인
+    const currentImages = selectedMarker?.images || [];
+    if (files.length + currentImages.length > 1) {
+      alert('이미지는 최대 1개만 업로드할 수 있습니다. 기존 이미지를 삭제 후 시도해주세요.');
+      e.target.value = ''; // 파일 선택 초기화
+      return;
+    }
+    
+    setSelectedFiles(files);
   };
 
   return (
@@ -2453,7 +2949,7 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
             })}
 
             {/* 사용자가 추가한 마커들 (학생 활동) */}
-            {markers.map((marker) => (
+            {[...new Map(markers.map(marker => [marker.id, marker])).values()].map((marker) => (
               marker.position && marker.position.length === 2 && (
                 <Marker 
                   key={marker.id} 
@@ -2589,12 +3085,49 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
                   />
                 </div>
                 
+                {/* 이미지 업로드 섹션 추가 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    사진 추가 (최대 1개)
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  />
+                  {selectedFiles.length > 0 && (
+                    <div className="mt-2 text-sm text-gray-600">
+                      {selectedFiles.length}개 파일 선택됨
+                    </div>
+                  )}
+                  
+                  {/* 기존 이미지 표시 */}
+                  {selectedMarker?.images && selectedMarker.images.length > 0 && (
+                    <div className="mt-3">
+                      <p className="text-sm font-medium text-gray-700 mb-2">기존 이미지:</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {selectedMarker.images.map((url, idx) => (
+                          <div key={idx} className="relative group">
+                            <img 
+                              src={url} 
+                              alt={`이미지 ${idx+1}`} 
+                              className="h-16 w-16 object-cover rounded border"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
                 <div className="flex gap-2 justify-end">
                   <button
                     onClick={handleModalSave}
-                    className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+                    disabled={isUploading}
+                    className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 disabled:opacity-50"
                   >
-                    저장
+                    {isUploading ? '저장 중...' : '저장'}
                   </button>
                   <button
                     onClick={() => setModalMode('view')}
@@ -2621,137 +3154,134 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
                   </div>
                 )}
                 
+                {/* 이미지 표시 개선 */}
+                {selectedMarker.images && selectedMarker.images.length > 0 && (
+                  <div className="mb-4">
+                    <div className="text-sm text-gray-600 font-medium mb-2">📷 조사 사진</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {selectedMarker.images.map((imageUrl, index) => (
+                        <a 
+                          key={index} 
+                          href={imageUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="block"
+                        >
+                          <img 
+                            src={imageUrl} 
+                            alt={`이미지 ${index+1}`} 
+                            className="w-full h-32 object-cover rounded border border-gray-300 hover:border-blue-500 transition-colors"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
                 {/* 작성자 정보 */}
-                <div className="mb-4 p-3 bg-gray-50 border border-gray-300 rounded">
-                  <div className="flex items-center">
+                <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded">
+                  <div className="flex items-center mb-1">
                     <div 
-                      className="w-3 h-3 rounded-full mr-2"
+                      className="w-3 h-3 rounded-full mr-2 border border-gray-300"
                       style={{ backgroundColor: selectedMarker.color || DEFAULT_COLOR }}
                     ></div>
-                    <span className="text-sm text-gray-600">
+                    <span className="text-sm font-medium text-gray-700">
                       {selectedMarker.classId} - {selectedMarker.userName || '익명'}
                     </span>
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    작성: {new Date(selectedMarker.createdAt).toLocaleString('ko-KR')}
+                  
+                  <div className="text-xs text-gray-500 space-y-1">
+                    <div>작성: {new Date(selectedMarker.createdAt).toLocaleString('ko-KR')}</div>
+                    {selectedMarker.updatedAt && selectedMarker.updatedAt !== selectedMarker.createdAt && (
+                      <div>수정: {new Date(selectedMarker.updatedAt).toLocaleString('ko-KR')}</div>
+                    )}
                   </div>
-                  {selectedMarker.updatedAt && selectedMarker.updatedAt !== selectedMarker.createdAt && (
-                    <div className="text-xs text-gray-500">
-                      수정: {new Date(selectedMarker.updatedAt).toLocaleString('ko-KR')}
-                    </div>
-                  )}
                 </div>
                 
-                {/* 버튼들 */}
-                <div className="flex gap-2 mt-4">
-                  {currentUser && (
+                {/* 상호작용 버튼들 */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {/* 수정/삭제 버튼 */}
+                  {(currentUser && (selectedMarker.userId === currentUser.uid || isTeacher())) && (
                     <>
-                      {/* 수정/삭제 버튼 - 작성자 또는 교사만 표시 */}
-                      {(selectedMarker.userId === currentUser.uid || isTeacher()) && (
-                        <div className="flex gap-2 w-full">
-                          <button
-                            onClick={handleEditMode}
-                            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 flex-1"
-                          >
-                            ✏️ 수정
-                          </button>
-                          <button
-                            onClick={handleModalDelete}
-                            className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 flex-1"
-                          >
-                            🗑️ 삭제
-                          </button>
-                        </div>
-                      )}
+                      <button 
+                        onClick={() => handleEditMode()}
+                        className="bg-blue-500 text-white px-3 py-2 rounded text-sm hover:bg-blue-600 font-medium"
+                      >
+                        ✏️ 수정
+                      </button>
+                      <button 
+                        onClick={() => handleModalDelete()}
+                        className="bg-red-500 text-white px-3 py-2 rounded text-sm hover:bg-red-600 font-medium"
+                      >
+                        🗑️ 삭제
+                      </button>
                     </>
                   )}
-                </div>
-                
-                {/* 좋아요 버튼 - 별도 행에 배치 */}
-                <div className="mt-2">
-                  <button
+                  
+                  {/* 좋아요 버튼 */}
+                  <button 
                     onClick={() => handleLike(selectedMarker.id)}
-                    className={`w-full px-4 py-2 rounded ${
-                      selectedMarker.likedBy?.includes(currentUser?.uid)
-                        ? 'bg-green-600 text-white'
+                    className={`px-3 py-2 rounded text-sm transition-colors ${
+                      selectedMarker.likedBy?.includes(currentUser?.uid) 
+                        ? 'bg-green-600 text-white' 
                         : 'bg-green-500 text-white hover:bg-green-600'
                     }`}
                   >
                     👍 좋아요 {selectedMarker.likes || 0}
                   </button>
-                </div>
-                
-                <div className="flex gap-2 mt-2">
-                  <button
+                  
+                  {/* 댓글 버튼 */}
+                  <button 
                     onClick={() => handleComment(selectedMarker.id)}
-                    className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 flex-1"
+                    className="bg-purple-500 text-white px-3 py-2 rounded text-sm hover:bg-purple-600"
                   >
-                    💬 댓글 작성
+                    💬 댓글 {selectedMarker.commentCount || 0}
                   </button>
-                  <button
+                  
+                  {/* 공유 버튼 */}
+                  <button 
                     onClick={() => handleShare(selectedMarker)}
-                    className="bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600 flex-1"
+                    className="bg-orange-500 text-white px-3 py-2 rounded text-sm hover:bg-orange-600"
                   >
                     📤 공유
                   </button>
                 </div>
                 
-                {/* 댓글 목록 표시 */}
-                <div className="mt-4">
-                  <h4 className="text-sm font-medium mb-2 flex items-center">
-                    <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs mr-2">
-                      {selectedMarker.commentCount || 0}
-                    </span>
-                    댓글
-                  </h4>
-                  
-                  {(!selectedMarker.comments || selectedMarker.comments.length === 0) ? (
-                    <div className="text-sm text-gray-500 italic p-3 bg-gray-50 rounded-lg text-center">
-                      아직 댓글이 없습니다. 첫 댓글을 작성해보세요!
-                    </div>
-                  ) : (
-                    <div className="space-y-3 max-h-60 overflow-y-auto p-1">
+                {/* 댓글 목록 */}
+                {selectedMarker.comments && selectedMarker.comments.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="font-medium text-gray-700 mb-2">💬 댓글 ({selectedMarker.comments.length})</h4>
+                    <div className="space-y-3">
                       {selectedMarker.comments.map((comment) => (
-                        <div key={comment.id} className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                        <div key={comment.id} className="p-2 bg-gray-50 rounded border border-gray-200">
                           <div className="flex justify-between items-start">
-                            <div className="font-medium text-sm">{comment.userName}</div>
-                            <div className="text-xs text-gray-500">
-                              {new Date(comment.createdAt).toLocaleString('ko-KR', {
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
+                            <span className="text-sm font-medium">{comment.userName}</span>
+                            <div className="flex items-center gap-2">
+                              <button 
+                                onClick={() => handleCommentLike(selectedMarker.id, comment.id)}
+                                className="text-xs text-gray-500 hover:text-green-600"
+                              >
+                                👍 {comment.likes || 0}
+                              </button>
+                              {(comment.userId === currentUser?.uid || isTeacher()) && (
+                                <button 
+                                  onClick={() => handleDeleteComment(selectedMarker.id, comment.id)}
+                                  className="text-xs text-gray-500 hover:text-red-600"
+                                >
+                                  🗑️
+                                </button>
+                              )}
                             </div>
                           </div>
-                          <div className="text-sm my-2">{comment.text}</div>
-                          <div className="flex justify-between items-center text-xs">
-                            <button
-                              onClick={() => handleCommentLike(selectedMarker.id, comment.id)}
-                              className={`flex items-center ${
-                                comment.likedBy?.includes(currentUser?.uid) 
-                                  ? 'text-blue-600' 
-                                  : 'text-gray-500 hover:text-blue-600'
-                              }`}
-                            >
-                              {comment.likedBy?.includes(currentUser?.uid) ? '❤️' : '🤍'} 좋아요 {comment.likes || 0}
-                            </button>
-                            
-                            {(currentUser && (comment.userId === currentUser.uid || isTeacher())) && (
-                              <button
-                                onClick={() => handleDeleteComment(selectedMarker.id, comment.id)}
-                                className="text-red-500 hover:text-red-700"
-                              >
-                                삭제
-                                {isTeacher() && comment.userId !== currentUser.uid && ' (교사)'}
-                              </button>
-                            )}
+                          <p className="text-sm mt-1">{comment.text}</p>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {new Date(comment.createdAt).toLocaleString('ko-KR')}
                           </div>
                         </div>
                       ))}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
