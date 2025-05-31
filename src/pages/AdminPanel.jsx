@@ -779,16 +779,19 @@ function AdminPanel() {
                     <div className="text-3xl mb-2">🎯</div>
                     <h4 className="font-bold text-gray-800">퀴즈 완료</h4>
                     <p className="text-sm text-gray-600">만점 시 2개, 일반 완료 시 1개</p>
+                    <p className="text-xs text-gray-500 mt-1">재도전 1번 허용</p>
                   </div>
                   <div className="bg-white rounded-xl p-4 text-center">
-                    <div className="text-3xl mb-2">👨‍🏫</div>
-                    <h4 className="font-bold text-gray-800">교사 보상</h4>
-                    <p className="text-sm text-gray-600">수동으로 1-2개 지급</p>
+                    <div className="text-3xl mb-2">🌟</div>
+                    <h4 className="font-bold text-gray-800">공정한 재도전</h4>
+                    <p className="text-sm text-gray-600">실수자만 재도전 가능</p>
+                    <p className="text-xs text-gray-500 mt-1">만점자는 재도전 없음</p>
                   </div>
                   <div className="bg-white rounded-xl p-4 text-center">
                     <div className="text-3xl mb-2">🏆</div>
                     <h4 className="font-bold text-gray-800">최대 32개</h4>
                     <p className="text-sm text-gray-600">8개 레슨 × 최대 4개</p>
+                    <p className="text-xs text-gray-500 mt-1">퀴즈 3개 + 교사 보상</p>
                   </div>
                 </div>
                 
@@ -836,19 +839,23 @@ function AdminPanel() {
                   </div>
                   <div className="flex items-start space-x-2">
                     <span className="text-green-500 font-bold">2.</span>
-                    <span>교사는 우수한 활동에 대해 추가 별을 수동으로 지급할 수 있습니다.</span>
+                    <span>첫 시도에서 실수한 학생만 재도전 기회가 주어집니다. 재도전 만점 시 +1개로 총 2개가 됩니다.</span>
                   </div>
                   <div className="flex items-start space-x-2">
                     <span className="text-green-500 font-bold">3.</span>
-                    <span>별 개수에 따라 펫이 진화하고 새로운 기능이 해제됩니다.</span>
+                    <span>교사는 우수한 활동에 대해 추가 별을 수동으로 지급할 수 있습니다.</span>
                   </div>
                   <div className="flex items-start space-x-2">
                     <span className="text-green-500 font-bold">4.</span>
-                    <span>학급 순위를 통해 학생들의 동기를 부여할 수 있습니다.</span>
+                    <span>별 개수에 따라 펫이 진화하고 새로운 기능이 해제됩니다.</span>
                   </div>
                   <div className="flex items-start space-x-2">
                     <span className="text-green-500 font-bold">5.</span>
-                    <span>각 레슨에서는 한 번만 별을 받을 수 있어 중복 지급이 방지됩니다.</span>
+                    <span>학급 순위를 통해 학생들의 동기를 부여할 수 있습니다.</span>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <span className="text-green-500 font-bold">6.</span>
+                    <span>각 레슨에서는 최대 2번의 기회로 별을 받을 수 있습니다.</span>
                   </div>
                 </div>
               </div>

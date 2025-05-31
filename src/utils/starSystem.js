@@ -98,6 +98,11 @@ export const STAR_SOURCES = {
     amount: 2,
     description: "퀴즈 만점 완료"
   },
+  PERFECT_QUIZ_RETRY: {
+    type: "perfect_quiz_retry",
+    amount: 1,
+    description: "퀴즈 재도전 만점 완료"
+  },
   TEACHER_REWARD: {
     type: "teacher",
     amount: 1,

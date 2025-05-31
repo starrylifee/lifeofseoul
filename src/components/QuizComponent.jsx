@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { awardStarsForQuiz } from '../utils/starAPI';
+import { doc, setDoc, getDoc, query, collection, where, getDocs } from 'firebase/firestore';
+import { awardStarsForQuiz, getStarAttemptsForLesson } from '../utils/starAPI';
 
 function QuizComponent({ lessonConfig, lessonId }) {
   const { currentUser } = useAuth();
@@ -11,6 +11,8 @@ function QuizComponent({ lessonConfig, lessonId }) {
   const [savedAnswers, setSavedAnswers] = useState({});
   const [questionsCompleted, setQuestionsCompleted] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [starAttempts, setStarAttempts] = useState(0);
+  const [firstAttemptPerfect, setFirstAttemptPerfect] = useState(false);
 
   // 기존 답안 불러오기
   useEffect(() => {
@@ -31,6 +33,22 @@ function QuizComponent({ lessonConfig, lessonId }) {
             setAnswers(data.answers);
             setShowResults(true);
           }
+        }
+
+        // 별 시도 횟수 확인
+        const attempts = await getStarAttemptsForLesson(currentUser.uid, lessonId);
+        setStarAttempts(attempts);
+
+        // 첫 번째 시도에서 만점이었는지 확인
+        if (attempts > 0) {
+          const starHistoryQuery = query(
+            collection(db, 'starHistory'),
+            where('userId', '==', currentUser.uid),
+            where('lessonId', '==', lessonId),
+            where('source', '==', 'perfect_quiz')
+          );
+          const snapshot = await getDocs(starHistoryQuery);
+          setFirstAttemptPerfect(snapshot.docs.length > 0);
         }
       } catch (error) {
         console.error("Error loading saved answers:", error);
@@ -77,7 +95,7 @@ function QuizComponent({ lessonConfig, lessonId }) {
 
       await setDoc(activityDocRef, saveData, { merge: true });
       
-      // 별 지급 (만점 시 2개, 일반 완료 시 1개)
+      // 별 지급 (재도전 1번 허용)
       let starsAwarded = 0;
       const isPerfectScore = correctCount === lessonConfig.questions.length;
       
@@ -85,6 +103,9 @@ function QuizComponent({ lessonConfig, lessonId }) {
         starsAwarded = await awardStarsForQuiz(currentUser.uid, lessonId, isPerfectScore);
         if (starsAwarded > 0) {
           console.log(`별 ${starsAwarded}개 지급됨!`);
+          // 별 시도 횟수 업데이트
+          const newAttempts = await getStarAttemptsForLesson(currentUser.uid, lessonId);
+          setStarAttempts(newAttempts);
         }
       } catch (starError) {
         console.error('별 지급 실패:', starError);
@@ -94,16 +115,38 @@ function QuizComponent({ lessonConfig, lessonId }) {
       setQuestionsCompleted(correctCount);
       setSavedAnswers(answers);
       
-      // 성공 메시지
+      // 성공 메시지 (시도 횟수에 따라 다른 메시지)
       if (isPerfectScore) {
-        const message = starsAwarded > 0 
-          ? `🎉 축하합니다! 모든 문제를 맞혔습니다! ⭐ 별 ${starsAwarded}개를 획득했어요! (${correctCount}/${lessonConfig.questions.length})`
-          : `🎉 축하합니다! 모든 문제를 맞혔습니다! (${correctCount}/${lessonConfig.questions.length})`;
+        let message = '';
+        if (starAttempts === 0) {
+          // 첫 번째 시도 만점
+          message = starsAwarded > 0 
+            ? `🎉 축하합니다! 모든 문제를 맞혔습니다! ⭐ 별 ${starsAwarded}개를 획득했어요! (${correctCount}/${lessonConfig.questions.length})`
+            : `🎉 축하합니다! 모든 문제를 맞혔습니다! (${correctCount}/${lessonConfig.questions.length})`;
+        } else if (starAttempts === 1) {
+          // 재도전 만점
+          message = starsAwarded > 0 
+            ? `🌟 재도전 성공! 만점으로 별 ${starsAwarded}개를 추가 획득했어요! (총 2개) (${correctCount}/${lessonConfig.questions.length})`
+            : `🎉 재도전 성공! 모든 문제를 맞혔습니다! (${correctCount}/${lessonConfig.questions.length})`;
+        } else {
+          // 2번 모두 사용한 경우
+          message = `🎉 완벽합니다! 모든 문제를 맞혔습니다! (${correctCount}/${lessonConfig.questions.length})`;
+        }
         alert(message);
       } else if (correctCount > 0) {
-        const message = starsAwarded > 0 
-          ? `📝 결과가 저장되었습니다! 정답: ${correctCount}/${lessonConfig.questions.length}개 ⭐ 별 ${starsAwarded}개 획득!`
-          : `📝 결과가 저장되었습니다! 정답: ${correctCount}/${lessonConfig.questions.length}개`;
+        let message = '';
+        if (starAttempts === 0) {
+          // 첫 번째 시도
+          message = starsAwarded > 0 
+            ? `📝 결과가 저장되었습니다! 정답: ${correctCount}/${lessonConfig.questions.length}개 ⭐ 별 ${starsAwarded}개 획득! (재도전 기회 1번 있음)`
+            : `📝 결과가 저장되었습니다! 정답: ${correctCount}/${lessonConfig.questions.length}개`;
+        } else if (starAttempts === 1) {
+          // 재도전에서 만점이 아닌 경우
+          message = `📝 재도전 결과가 저장되었습니다! 정답: ${correctCount}/${lessonConfig.questions.length}개 (재도전에서는 만점일 때만 추가 별을 받을 수 있어요)`;
+        } else {
+          // 2번 모두 사용한 경우
+          message = `📝 결과가 저장되었습니다! 정답: ${correctCount}/${lessonConfig.questions.length}개`;
+        }
         alert(message);
       } else {
         alert(`📝 결과가 저장되었습니다! 정답: ${correctCount}/${lessonConfig.questions.length}개`);
@@ -152,12 +195,19 @@ function QuizComponent({ lessonConfig, lessonId }) {
     <div className="space-y-4">
       <div className="flex justify-between items-center mb-4">
         <h4 className="text-lg font-bold text-blue-800">{getQuizTitle()}</h4>
-        {questionsCompleted > 0 && (
-          <div className="bg-white px-3 py-1 rounded-full text-sm font-medium">
-            <span className="text-green-600">✅ {questionsCompleted}</span>
-            <span className="text-gray-500">/{lessonConfig.questions.length}</span>
-          </div>
-        )}
+        <div className="flex items-center space-x-2">
+          {questionsCompleted > 0 && (
+            <div className="bg-white px-3 py-1 rounded-full text-sm font-medium">
+              <span className="text-green-600">✅ {questionsCompleted}</span>
+              <span className="text-gray-500">/{lessonConfig.questions.length}</span>
+            </div>
+          )}
+          {starAttempts > 0 && (
+            <div className="bg-yellow-50 px-3 py-1 rounded-full text-sm font-medium border border-yellow-200">
+              <span className="text-yellow-600">⭐ {starAttempts}/2 시도</span>
+            </div>
+          )}
+        </div>
       </div>
       
       <div className="space-y-4">
@@ -208,16 +258,33 @@ function QuizComponent({ lessonConfig, lessonId }) {
             {getCorrectAnswersCount() === lessonConfig.questions.length && (
               <div className="text-green-600 font-medium mt-1">🎉 완벽합니다!</div>
             )}
+            {firstAttemptPerfect && (
+              <div className="text-blue-600 font-medium mt-1">✨ 첫 시도 만점으로 최대 보상 획득!</div>
+            )}
           </div>
-          <button
-            onClick={() => {
-              setAnswers({});
-              setShowResults(false);
-            }}
-            className="w-full bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
-          >
-            다시 풀어보기
-          </button>
+          {!firstAttemptPerfect && starAttempts < 2 && (
+            <button
+              onClick={() => {
+                setAnswers({});
+                setShowResults(false);
+              }}
+              className="w-full bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              {starAttempts === 0 ? '다시 풀어보기' : 
+               starAttempts === 1 ? '재도전하기 (만점 시 별 +1개)' : 
+               '다시 풀어보기 (별 지급 완료)'}
+            </button>
+          )}
+          {firstAttemptPerfect && (
+            <div className="w-full bg-green-100 text-green-700 py-2 px-4 rounded-lg text-center font-medium">
+              🏆 첫 시도 만점! 재도전 기회 없음 (최대 보상 달성)
+            </div>
+          )}
+          {!firstAttemptPerfect && starAttempts >= 2 && (
+            <div className="w-full bg-gray-100 text-gray-600 py-2 px-4 rounded-lg text-center font-medium">
+              📝 모든 기회 사용 완료
+            </div>
+          )}
         </div>
       )}
     </div>
