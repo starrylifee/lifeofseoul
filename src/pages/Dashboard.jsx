@@ -267,29 +267,6 @@ const Dashboard = () => {
           {/* 교사용 메뉴 */}
           {isTeacher() && (
             <>
-              {/* 학급 관리 */}
-              <Link 
-                to="/admin" 
-                className="group bg-white rounded-3xl p-6 md:p-8 shadow-soft hover:shadow-friendly transition-all duration-300 hover:scale-105 border-2 border-transparent hover:border-seoul-200"
-              >
-                <div className="text-center">
-                  <div className="bg-gradient-to-br from-seoul-400 to-seoul-600 rounded-2xl p-4 md:p-6 mb-4 inline-block">
-                    <span className="text-4xl md:text-5xl">👥</span>
-                  </div>
-                  <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-2 font-korean">
-                    학급 관리
-                  </h3>
-                  <p className="text-gray-600 text-sm md:text-base font-korean">
-                    학생 등록, 학급 설정 등을 관리하세요
-                  </p>
-                  <div className="mt-4 bg-seoul-50 rounded-xl p-3">
-                    <span className="text-seoul-600 font-medium text-sm font-korean">
-                      🎓 학생 관리 및 설정
-                    </span>
-                  </div>
-                </div>
-              </Link>
-
               {/* 학급 진행 현황 */}
               <Link 
                 to="/teacher-progress" 
@@ -338,28 +315,30 @@ const Dashboard = () => {
             </>
           )}
 
-          {/* 공통 메뉴 - 교실 들어가기 */}
-          <Link 
-            to="/lesson/1" 
-            className="group bg-white rounded-3xl p-6 md:p-8 shadow-soft hover:shadow-friendly transition-all duration-300 hover:scale-105 border-2 border-transparent hover:border-seoul-200"
-          >
-            <div className="text-center">
-              <div className="bg-gradient-to-br from-seoul-400 to-seoul-600 rounded-2xl p-4 md:p-6 mb-4 inline-block">
-                <span className="text-4xl md:text-5xl">🏫</span>
+          {/* 공통 메뉴 - 교실 들어가기 (학생용만) */}
+          {isStudent() && (
+            <Link 
+              to="/lesson/1" 
+              className="group bg-white rounded-3xl p-6 md:p-8 shadow-soft hover:shadow-friendly transition-all duration-300 hover:scale-105 border-2 border-transparent hover:border-seoul-200"
+            >
+              <div className="text-center">
+                <div className="bg-gradient-to-br from-seoul-400 to-seoul-600 rounded-2xl p-4 md:p-6 mb-4 inline-block">
+                  <span className="text-4xl md:text-5xl">🏫</span>
+                </div>
+                <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-2 font-korean">
+                  교실 들어가기
+                </h3>
+                <p className="text-gray-600 text-sm md:text-base font-korean">
+                  첫 번째 수업부터 시작해보세요!
+                </p>
+                <div className="mt-4 bg-seoul-50 rounded-xl p-3">
+                  <span className="text-seoul-600 font-medium text-sm font-korean">
+                    📚 1차시: 서울의 모습과 특성
+                  </span>
+                </div>
               </div>
-              <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-2 font-korean">
-                {isTeacher() ? '수업 미리보기' : '교실 들어가기'}
-              </h3>
-              <p className="text-gray-600 text-sm md:text-base font-korean">
-                {isTeacher() ? '수업 내용을 미리 확인해보세요!' : '첫 번째 수업부터 시작해보세요!'}
-              </p>
-              <div className="mt-4 bg-seoul-50 rounded-xl p-3">
-                <span className="text-seoul-600 font-medium text-sm font-korean">
-                  📚 1차시: 서울의 모습과 특성
-                </span>
-              </div>
-            </div>
-          </Link>
+            </Link>
+          )}
 
           {/* 수업 목록 보기 */}
           <Link 
