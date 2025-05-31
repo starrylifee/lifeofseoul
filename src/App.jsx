@@ -9,6 +9,10 @@ import LessonPage from './pages/LessonPage';
 import ShareView from './pages/ShareView';
 import LoginPage from './pages/Login';
 import AdminPanel from './pages/AdminPanel';
+import TeacherProgress from './pages/TeacherProgress';
+import Progress from './pages/Progress';
+import Settings from './pages/Settings';
+import Help from './pages/Help';
 // TODO: Add other necessary imports like Firebase config
 
 // Helper component for protected routes
@@ -31,7 +35,7 @@ function App() {
             <Route path="/login" element={isLoggedIn ? <Navigate to="/" replace /> : <LoginPage />} />
             <Route path="/admin" element={<AdminPanel />} />
 
-            {/* Protected Routes */} 
+            {/* Protected Routes */ 
             <Route 
               path="/"
               element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
@@ -49,8 +53,12 @@ function App() {
               element={<ProtectedRoute><ShareView /></ProtectedRoute>}
             />
             <Route 
+              path="/teacher-progress"
+              element={<ProtectedRoute><TeacherProgress /></ProtectedRoute>}
+            />
+            <Route 
               path="/progress"
-              element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
+              element={<ProtectedRoute><Progress /></ProtectedRoute>}
             />
             <Route 
               path="/explore"
@@ -58,11 +66,11 @@ function App() {
             />
             <Route 
               path="/help"
-              element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
+              element={<ProtectedRoute><Help /></ProtectedRoute>}
             />
             <Route 
               path="/settings"
-              element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
+              element={<ProtectedRoute><Settings /></ProtectedRoute>}
             />
             
             {/* Fallback or Not Found Route */}
