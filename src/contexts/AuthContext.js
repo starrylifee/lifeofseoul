@@ -17,6 +17,11 @@ export function AuthProvider({ children }) {
   const [studentNumber, setStudentNumber] = useState(null);
   const [loading, setLoading] = useState(true); // Add loading state
   const [firebaseError, setFirebaseError] = useState(false); // Firebase 연결 오류 상태
+  
+  // 캐싱을 위한 상태 추가
+  const [cachedStudents, setCachedStudents] = useState(new Map()); // classId -> students
+  const [cachedTeacher, setCachedTeacher] = useState(new Map()); // classId -> teacher
+  const [lastCacheTime, setLastCacheTime] = useState(new Map()); // classId -> timestamp
 
   // 사용자 정보 불러오기 (역할, 학급 등)
   const fetchUserData = async (user) => {
@@ -47,11 +52,24 @@ export function AuthProvider({ children }) {
   // 교사가 자신의 학급 학생들을 조회하는 함수
   const fetchClassStudents = async () => {
     if (!isTeacher() || !classId) {
-
       return [];
     }
 
+    // 캐시 확인 (5분간 유효)
+    const cacheKey = classId;
+    const now = Date.now();
+    const cacheExpiry = 5 * 60 * 1000; // 5분
+    
+    if (cachedStudents.has(cacheKey) && lastCacheTime.has(cacheKey)) {
+      const timeDiff = now - lastCacheTime.get(cacheKey);
+      if (timeDiff < cacheExpiry) {
+        console.log(`학생 목록 캐시 사용: ${classId}`);
+        return cachedStudents.get(cacheKey);
+      }
+    }
+
     try {
+      console.log(`학생 목록 새로 로드: ${classId}`);
       const studentsQuery = query(
         collection(db, "users"),
         where("classId", "==", classId),
@@ -65,6 +83,9 @@ export function AuthProvider({ children }) {
         ...doc.data()
       }));
       
+      // 캐시에 저장
+      setCachedStudents(prev => new Map(prev).set(cacheKey, students));
+      setLastCacheTime(prev => new Map(prev).set(cacheKey, now));
 
       return students;
     } catch (error) {
@@ -76,11 +97,24 @@ export function AuthProvider({ children }) {
   // 같은 학급의 교사를 조회하는 함수 (학생용)
   const fetchClassTeacher = async () => {
     if (!isStudent() || !classId) {
-
       return null;
     }
 
+    // 캐시 확인 (10분간 유효 - 교사 정보는 변경이 적음)
+    const cacheKey = classId;
+    const now = Date.now();
+    const cacheExpiry = 10 * 60 * 1000; // 10분
+    
+    if (cachedTeacher.has(cacheKey) && lastCacheTime.has(cacheKey)) {
+      const timeDiff = now - lastCacheTime.get(cacheKey);
+      if (timeDiff < cacheExpiry) {
+        console.log(`교사 정보 캐시 사용: ${classId}`);
+        return cachedTeacher.get(cacheKey);
+      }
+    }
+
     try {
+      console.log(`교사 정보 새로 로드: ${classId}`);
       const teacherQuery = query(
         collection(db, "users"),
         where("classId", "==", classId),
@@ -88,15 +122,21 @@ export function AuthProvider({ children }) {
       );
       
       const teacherSnapshot = await getDocs(teacherQuery);
+      let teacher = null;
+      
       if (!teacherSnapshot.empty) {
         const teacherData = teacherSnapshot.docs[0].data();
-
-        return {
+        teacher = {
           id: teacherSnapshot.docs[0].id,
           ...teacherData
         };
       }
-      return null;
+      
+      // 캐시에 저장
+      setCachedTeacher(prev => new Map(prev).set(cacheKey, teacher));
+      setLastCacheTime(prev => new Map(prev).set(cacheKey, now));
+      
+      return teacher;
     } catch (error) {
       console.error("학급 교사 조회 오류:", error);
       return null;

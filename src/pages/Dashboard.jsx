@@ -36,10 +36,22 @@ const Dashboard = () => {
         const progressData = [];
         let completedCount = 0;
 
-        // 각 레슨에 대해 진행 상태 확인
-        for (const lesson of lessonList) {
-          const activityDocRef = doc(db, "lessons", lesson.id, "activities", currentUser.uid);
-          const activityDoc = await getDoc(activityDocRef);
+        // 모든 레슨 데이터를 한번에 가져오기 (최적화)
+        const activitiesQuery = query(
+          collection(db, "lessons"),
+          where("__name__", "in", lessonList.map(lesson => lesson.id))
+        );
+        
+        // 사용자의 모든 활동 데이터를 한 번의 쿼리로 가져오기
+        const userActivitiesPromises = lessonList.map(lesson => 
+          getDoc(doc(db, "lessons", lesson.id, "activities", currentUser.uid))
+        );
+        
+        const userActivitiesDocs = await Promise.all(userActivitiesPromises);
+        
+        // 각 레슨에 대해 진행 상태 계산
+        lessonList.forEach((lesson, index) => {
+          const activityDoc = userActivitiesDocs[index];
           
           let status = 'not_started'; // 시작하지 않음
           let completionRate = 0;
@@ -68,7 +80,7 @@ const Dashboard = () => {
             completionRate,
             questionsCompleted: activityDoc.exists() ? (activityDoc.data().questionsCompleted || 0) : 0
           });
-        }
+        });
 
         setLessonProgress(progressData);
         setOverallProgress({ completed: completedCount, total: lessonList.length });

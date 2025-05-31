@@ -13,8 +13,9 @@ const TeacherStarPanel = ({ lessonId }) => {
   const [loading, setLoading] = useState(false);
   const [classRanking, setClassRanking] = useState([]);
   const [showRanking, setShowRanking] = useState(false);
+  const [studentsLoading, setStudentsLoading] = useState(false);
 
-  // 학급 학생 목록 로드
+  // 학급 학생 목록 로드 (최적화: 캐싱 및 중복 호출 방지)
   useEffect(() => {
     const fetchStudents = async () => {
       console.log('fetchStudents 시작');
@@ -31,6 +32,14 @@ const TeacherStarPanel = ({ lessonId }) => {
         return;
       }
       
+      // 이미 로딩 중이면 중복 호출 방지
+      if (studentsLoading) {
+        console.log('이미 학생 목록 로딩 중...');
+        return;
+      }
+      
+      setStudentsLoading(true);
+      
       try {
         console.log('학생 목록 로드 시도, classId:', classId);
         const studentList = await getClassStudents(classId);
@@ -40,11 +49,13 @@ const TeacherStarPanel = ({ lessonId }) => {
       } catch (error) {
         console.error('학생 목록 로드 실패:', error);
         console.error('에러 상세:', error.message);
+      } finally {
+        setStudentsLoading(false);
       }
     };
 
     fetchStudents();
-  }, [classId, currentUser]);
+  }, [classId, currentUser?.uid]); // currentUser 전체 대신 uid만 감시
 
   // 학급 별 순위 로드
   const fetchClassRanking = async () => {
