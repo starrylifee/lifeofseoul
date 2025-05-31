@@ -691,6 +691,14 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
   const [selectedImages, setSelectedImages] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
   
+  // 새로운 마커 생성 상태 추가
+  const [showNewMarkerForm, setShowNewMarkerForm] = useState(false);
+  const [newMarkerPosition, setNewMarkerPosition] = useState(null);
+  const [newMarkerTitle, setNewMarkerTitle] = useState('');
+  const [newMarkerDescription, setNewMarkerDescription] = useState('');
+  const [newMarkerContent, setNewMarkerContent] = useState('');
+  const [newMarkerFiles, setNewMarkerFiles] = useState([]);
+  
   // Auth 컨텍스트를 항상 호출 (Hook 규칙 준수)
   const authContext = useAuth();
   const currentUser = authContext?.currentUser || null;
@@ -1230,7 +1238,7 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       }
     }
 
-    // Firebase를 사용할 수 없는 경우 로컬에서만 마커 추가
+    // Firebase를 사용할 수 없는 경우 기존 로직 유지
     if (!isFirebaseAvailable) {
       if (window.confirm('이 위치에 마커를 추가하시겠습니까? (오프라인 모드 - 저장되지 않습니다)')) {
         const newMarker = {
@@ -1297,58 +1305,115 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       return; 
     }
 
-    // 차시별 맞춤 안내 문구 + 공통 안내문구 추가
-    const promptText = isStudent() ? 
-      (LESSON_MARKER_PROMPTS[lessonId] || '이 위치에 대한 설명을 작성해주세요:') + '\n\n아래 칸에 번호를 적어주세요. 추가된 마커를 수정해서 내용을 미션에 맞게 채워보세요.' :
-      '이 위치에 마커를 추가하시겠습니까?';
+    // 마커 생성 확인 및 폼 표시
+    if (window.confirm('이곳에 마커를 표시하시겠습니까?')) {
+      // 차시별 맞춤 안내 문구 설정
+      const defaultDescription = isStudent() ? 
+        (LESSON_MARKER_PROMPTS[lessonId] || '이 위치에 대한 설명을 작성해주세요') :
+        '';
       
-    const description = prompt(promptText);
-    if (description) {
+      // 새 마커 폼 상태 설정
+      setNewMarkerPosition([latlng.lat, latlng.lng]);
+      setNewMarkerTitle('');
+      setNewMarkerDescription(defaultDescription);
+      setNewMarkerContent('');
+      setNewMarkerFiles([]);
+      setShowNewMarkerForm(true);
+    }
+  };
+
+  // 새 마커 저장 함수
+  const handleSaveNewMarker = async () => {
+    if (!newMarkerTitle.trim()) {
+      alert('마커 제목을 입력해주세요.');
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      
+      // 이미지 업로드 처리
+      let imageUrls = [];
+      if (newMarkerFiles && newMarkerFiles.length > 0) {
+        try {
+          const tempMarkerId = `marker_${Date.now()}_${currentUser.uid}`;
+          imageUrls = await uploadImagesToStorage(newMarkerFiles, tempMarkerId);
+        } catch (uploadError) {
+          console.error("이미지 업로드 실패:", uploadError);
+          alert("이미지 업로드에 실패했지만 텍스트 내용은 저장됩니다.");
+        }
+      }
+
       const markerId = `marker_${Date.now()}_${currentUser.uid}`;
       const newMarker = {
         id: markerId,
-        position: [latlng.lat, latlng.lng],
-        title: description.length > 50 ? description.substring(0, 50) + '...' : description, // 제목 (50자 제한)
-        description: description, // 기본 설명 (하위 호환성을 위해 유지)
-        content: '', // 상세 내용 (추후 확장)
-        images: [], // 첨부 이미지 URL 배열
+        position: newMarkerPosition,
+        title: newMarkerTitle,
+        description: newMarkerDescription,
+        content: newMarkerContent,
+        images: imageUrls,
         userId: currentUser.uid,
-        userName: currentUser.email.split('@')[0], // 사용자 표시명
+        userName: currentUser.email.split('@')[0],
         classId: classId,
         color: getUserColor(currentUser.uid),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        isEditable: true, // 작성자 수정 가능
-        commentCount: 0, // 댓글 수 (캐시용)
-        // 추후 확장 필드들
-        tags: [], // 태그 배열
-        isPublic: true, // 공개 여부
-        likes: 0, // 좋아요 수
-        likedBy: [] // 좋아요한 사용자 배열
+        isEditable: true,
+        commentCount: 0,
+        tags: [],
+        isPublic: true,
+        likes: 0,
+        likedBy: []
       };
       
-      // Optimistically update local state
-      setMarkers((prevMarkers) => [...prevMarkers, newMarker]); 
-      try {
-          // Atomically add the new marker to the 'markers' array in Firestore
-          await updateDoc(userActivityDocRef, {
-              markers: arrayUnion(newMarker),
-              lastUpdated: serverTimestamp()
-          });
-          console.log("New marker saved to Firestore:", newMarker.id);
-          
-          // 이벤트 알림 전송 (다른 학생들에게 알림)
-          await notifyClassEvent('marker_added', {
-            markerId: newMarker.id,
-            markerTitle: newMarker.title
-          });
-      } catch (error) {
-          console.error("Error saving marker:", error);
-          // Revert local state if save fails
-          setMarkers((prevMarkers) => prevMarkers.filter(m => m.id !== newMarker.id));
-          // TODO: Show error to user
-      }
+      // 로컬 상태 업데이트
+      setMarkers((prevMarkers) => [...prevMarkers, newMarker]);
+      
+      // Firestore에 저장
+      await updateDoc(userActivityDocRef, {
+        markers: arrayUnion(newMarker),
+        lastUpdated: serverTimestamp()
+      });
+      
+      // 이벤트 알림 전송
+      await notifyClassEvent('marker_added', {
+        markerId: newMarker.id,
+        markerTitle: newMarker.title
+      });
+      
+      console.log("새 마커 저장 완료:", newMarker.id);
+      
+      // 폼 닫기
+      handleCancelNewMarker();
+      
+    } catch (error) {
+      console.error("마커 저장 오류:", error);
+      // 실패 시 로컬 상태 되돌리기
+      setMarkers((prevMarkers) => prevMarkers.filter(m => m.position !== newMarkerPosition));
+      alert(`마커 저장 중 오류가 발생했습니다: ${error.message}`);
+    } finally {
+      setIsUploading(false);
     }
+  };
+
+  // 새 마커 생성 취소
+  const handleCancelNewMarker = () => {
+    setShowNewMarkerForm(false);
+    setNewMarkerPosition(null);
+    setNewMarkerTitle('');
+    setNewMarkerDescription('');
+    setNewMarkerContent('');
+    setNewMarkerFiles([]);
+  };
+
+  // 새 마커 이미지 선택 핸들러
+  const handleNewMarkerImageSelect = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length > 3) {
+      alert('최대 3개의 이미지만 업로드할 수 있습니다.');
+      return;
+    }
+    setNewMarkerFiles(files);
   };
 
   // 마커 선택 핸들러 - 마커 클릭 시 모달 열기
@@ -3407,6 +3472,138 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
                 )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+      
+      {/* 새 마커 생성 폼 모달 */}
+      {showNewMarkerForm && newMarkerPosition && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[2000]"
+          onClick={handleCancelNewMarker}
+        >
+          <div 
+            className="bg-white rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 폼 헤더 */}
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-gray-800">📍 새 마커 생성</h3>
+              <button
+                onClick={handleCancelNewMarker}
+                className="text-gray-500 hover:text-gray-700 text-xl font-bold"
+              >
+                ✕
+              </button>
+            </div>
+            
+            {/* 위치 정보 표시 */}
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
+              <div className="text-sm text-blue-600 font-medium mb-1">📍 선택된 위치</div>
+              <p className="text-gray-700 text-sm">
+                위도: {newMarkerPosition[0].toFixed(6)}, 경도: {newMarkerPosition[1].toFixed(6)}
+              </p>
+            </div>
+            
+            {/* 입력 폼 */}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  제목 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newMarkerTitle}
+                  onChange={(e) => setNewMarkerTitle(e.target.value)}
+                  placeholder="마커 제목을 입력하세요"
+                  className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">위치 설명</label>
+                <textarea
+                  value={newMarkerDescription}
+                  onChange={(e) => setNewMarkerDescription(e.target.value)}
+                  placeholder={isStudent() ? 
+                    (LESSON_MARKER_PROMPTS[lessonId] || '이 위치에 대한 설명을 작성해주세요') :
+                    '이 위치에 대한 설명을 작성해주세요'
+                  }
+                  className="w-full border border-gray-300 rounded px-3 py-2 h-24 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">상세 내용</label>
+                <textarea
+                  value={newMarkerContent}
+                  onChange={(e) => setNewMarkerContent(e.target.value)}
+                  placeholder="추가적인 조사 내용이나 메모를 작성하세요"
+                  className="w-full border border-gray-300 rounded px-3 py-2 h-32 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+              </div>
+              
+              {/* 이미지 업로드 섹션 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  사진 추가 (최대 3개)
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleNewMarkerImageSelect}
+                  className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+                {newMarkerFiles.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    <div className="text-sm text-gray-600">
+                      {newMarkerFiles.length}개 파일 선택됨
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {newMarkerFiles.map((file, idx) => (
+                        <div key={idx}>📎 {file.name}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* 학생용 안내 메시지 */}
+              {isStudent() && (
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
+                  <div className="text-sm text-yellow-700">
+                    💡 <strong>팁:</strong> 제목은 필수입니다. 
+                    차시별 미션에 맞는 내용을 작성해보세요!
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* 버튼 영역 */}
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={handleSaveNewMarker}
+                disabled={isUploading || !newMarkerTitle.trim()}
+                className="flex-1 bg-blue-500 text-white px-4 py-3 rounded font-medium hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+              >
+                {isUploading ? (
+                  <span className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    저장 중...
+                  </span>
+                ) : (
+                  '📍 마커 생성'
+                )}
+              </button>
+              <button
+                onClick={handleCancelNewMarker}
+                disabled={isUploading}
+                className="bg-gray-300 text-gray-800 px-4 py-3 rounded font-medium hover:bg-gray-400 disabled:opacity-50 transition-colors"
+              >
+                취소
+              </button>
+            </div>
           </div>
         </div>
       )}
