@@ -3,12 +3,15 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase';
 import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
+import StarLevelDisplay from '../components/StarLevelDisplay';
+import { getStudentStars } from '../utils/starAPI';
 
 const Dashboard = () => {
   const { currentUser, classId, isTeacher, isStudent } = useAuth();
   const [loading, setLoading] = useState(true);
   const [lessonProgress, setLessonProgress] = useState([]);
   const [overallProgress, setOverallProgress] = useState({ completed: 0, total: 8 });
+  const [totalStars, setTotalStars] = useState(0);
   const navigate = useNavigate();
 
   // 레슨 목록 정의
@@ -68,6 +71,13 @@ const Dashboard = () => {
 
         setLessonProgress(progressData);
         setOverallProgress({ completed: completedCount, total: lessonList.length });
+        
+        // 별 개수 가져오기 (학생인 경우에만)
+        if (isStudent()) {
+          const stars = await getStudentStars(currentUser.uid);
+          setTotalStars(stars);
+        }
+        
         setLoading(false);
       } catch (error) {
         console.error("Error fetching lesson progress:", error);
@@ -136,36 +146,45 @@ const Dashboard = () => {
             오늘도 서울에 대해 재미있게 배워볼까요?
           </p>
           
-          {/* 전체 진행률 표시 */}
+          {/* 학생용 펫 시스템과 진행률 */}
           {isStudent() && (
-            <div className="mt-6 bg-white rounded-2xl p-6 shadow-soft max-w-md mx-auto">
-              <h3 className="text-lg font-bold text-gray-800 mb-3 font-korean">📊 전체 학습 진행률</h3>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-600 font-korean">
-                  완료한 수업: {overallProgress.completed}/{overallProgress.total}개
-                </span>
-                <span className="text-sm font-bold text-seoul-600">
-                  {Math.round((overallProgress.completed / overallProgress.total) * 100)}%
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-3">
-                <div 
-                  className="bg-gradient-to-r from-seoul-400 to-seoul-600 h-3 rounded-full transition-all duration-500"
-                  style={{ width: `${(overallProgress.completed / overallProgress.total) * 100}%` }}
-                ></div>
-              </div>
-              <div className="mt-3 flex justify-center space-x-4 text-xs">
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-green-400 rounded-full mr-1"></div>
-                  <span className="text-gray-600 font-korean">완료</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-yellow-400 rounded-full mr-1"></div>
-                  <span className="text-gray-600 font-korean">진행 중</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-gray-400 rounded-full mr-1"></div>
-                  <span className="text-gray-600 font-korean">시작 전</span>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8 md:mb-12">
+              {/* 펫과 레벨 시스템 */}
+              <StarLevelDisplay userId={currentUser?.uid} />
+              
+              {/* 전체 진행률 표시 */}
+              <div className="bg-white rounded-3xl p-6 shadow-soft">
+                <h3 className="text-xl font-bold text-gray-800 mb-4 font-korean">📊 학습 진행률</h3>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-600 font-korean">
+                      완료한 수업
+                    </span>
+                    <span className="text-lg font-bold text-seoul-600">
+                      {overallProgress.completed}/{overallProgress.total}개
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-4">
+                    <div 
+                      className="bg-gradient-to-r from-seoul-400 to-seoul-600 h-4 rounded-full transition-all duration-500"
+                      style={{ width: `${(overallProgress.completed / overallProgress.total) * 100}%` }}
+                    ></div>
+                  </div>
+                  <div className="text-center text-sm font-bold text-seoul-600">
+                    {Math.round((overallProgress.completed / overallProgress.total) * 100)}% 완료
+                  </div>
+                  
+                  {/* 별 요약 정보 */}
+                  <div className="pt-4 border-t border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-600 font-korean">
+                        획득한 별
+                      </span>
+                      <span className="text-lg font-bold text-yellow-600">
+                        ⭐ {totalStars}개
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -294,7 +313,7 @@ const Dashboard = () => {
                 </div>
                 <div className="bg-sunshine-50 rounded-xl p-3">
                   <span className="text-sunshine-600 font-medium text-sm font-korean">
-                    ⭐ 획득한 별: {overallProgress.completed}개
+                    ⭐ 획득한 별: {totalStars}개
                   </span>
                 </div>
               </div>

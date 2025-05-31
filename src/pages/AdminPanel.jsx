@@ -13,6 +13,7 @@ import {
   where
 } from "firebase/firestore";
 import { db } from '../firebase';
+import TeacherStarPanel from '../components/TeacherStarPanel';
 
 function AdminPanel() {
   const [loading, setLoading] = useState(false);
@@ -28,6 +29,7 @@ function AdminPanel() {
   const [teachers, setTeachers] = useState([]);
   const [students, setStudents] = useState([]);
   const [showAccountManagement, setShowAccountManagement] = useState(false);
+  const [activeTab, setActiveTab] = useState('accounts'); // 새로운 탭 상태
   
   // 관리자 패스워드 설정 (실제로는 환경변수나 보안 방식으로 처리해야 함)
   const ADMIN_PASSWORD = '12345678'; // 예시용 간단한 비밀번호
@@ -474,21 +476,27 @@ function AdminPanel() {
           <div className="mb-6">
             <div className="flex space-x-4">
               <button
-                onClick={() => setShowAccountManagement(false)}
-                className={`px-4 py-2 rounded ${!showAccountManagement ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}`}
+                onClick={() => setActiveTab('accounts')}
+                className={`px-4 py-2 rounded ${activeTab === 'accounts' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}`}
               >
                 계정 생성
               </button>
               <button
-                onClick={() => setShowAccountManagement(true)}
-                className={`px-4 py-2 rounded ${showAccountManagement ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}`}
+                onClick={() => setActiveTab('management')}
+                className={`px-4 py-2 rounded ${activeTab === 'management' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}`}
               >
                 계정 관리
+              </button>
+              <button
+                onClick={() => setActiveTab('stars')}
+                className={`px-4 py-2 rounded ${activeTab === 'stars' ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-700'}`}
+              >
+                ⭐ 별 지급 시스템
               </button>
             </div>
           </div>
 
-          {!showAccountManagement ? (
+          {activeTab === 'accounts' && (
             /* 계정 생성 탭 */
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* 학교-학급 생성 */}
@@ -648,7 +656,9 @@ function AdminPanel() {
                 </form>
               </div>
             </div>
-          ) : (
+          )}
+
+          {activeTab === 'management' && (
             /* 계정 관리 탭 */
             <div className="space-y-6">
               {/* 일괄 삭제 */}
@@ -755,6 +765,88 @@ function AdminPanel() {
                     </table>
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'stars' && (
+            /* 별 지급 시스템 탭 */
+            <div className="space-y-6">
+              <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-3xl p-6 border-2 border-yellow-200">
+                <h3 className="text-2xl font-bold text-gray-800 mb-4">⭐ 별 지급 시스템</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="bg-white rounded-xl p-4 text-center">
+                    <div className="text-3xl mb-2">🎯</div>
+                    <h4 className="font-bold text-gray-800">퀴즈 완료</h4>
+                    <p className="text-sm text-gray-600">자동으로 1개 지급</p>
+                  </div>
+                  <div className="bg-white rounded-xl p-4 text-center">
+                    <div className="text-3xl mb-2">👨‍🏫</div>
+                    <h4 className="font-bold text-gray-800">교사 보상</h4>
+                    <p className="text-sm text-gray-600">수동으로 1-2개 지급</p>
+                  </div>
+                  <div className="bg-white rounded-xl p-4 text-center">
+                    <div className="text-3xl mb-2">🏆</div>
+                    <h4 className="font-bold text-gray-800">최대 24개</h4>
+                    <p className="text-sm text-gray-600">8개 레슨 × 3개</p>
+                  </div>
+                </div>
+                
+                <div className="bg-white rounded-xl p-4">
+                  <h4 className="font-bold text-gray-800 mb-3">🐣 펫 레벨 시스템</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-3 text-sm">
+                    <div className="text-center p-2 bg-gray-50 rounded">
+                      <div className="text-2xl">🐣</div>
+                      <div className="font-medium">서울 새내기</div>
+                      <div className="text-xs text-gray-600">0-3개</div>
+                    </div>
+                    <div className="text-center p-2 bg-gray-50 rounded">
+                      <div className="text-2xl">🦁</div>
+                      <div className="font-medium">서울 탐험가</div>
+                      <div className="text-xs text-gray-600">4-7개</div>
+                    </div>
+                    <div className="text-center p-2 bg-gray-50 rounded">
+                      <div className="text-2xl">🎓</div>
+                      <div className="font-medium">서울 전문가</div>
+                      <div className="text-xs text-gray-600">8-15개</div>
+                    </div>
+                    <div className="text-center p-2 bg-gray-50 rounded">
+                      <div className="text-2xl">👑</div>
+                      <div className="font-medium">서울 마스터</div>
+                      <div className="text-xs text-gray-600">16-20개</div>
+                    </div>
+                    <div className="text-center p-2 bg-gray-50 rounded">
+                      <div className="text-2xl">✨</div>
+                      <div className="font-medium">서울 전설</div>
+                      <div className="text-xs text-gray-600">21-24개</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 교사용 별 지급 패널 */}
+              <TeacherStarPanel lessonId="1" />
+              
+              <div className="bg-white rounded-3xl p-6 shadow-soft">
+                <h4 className="text-lg font-bold text-gray-800 mb-4">📋 사용 가이드</h4>
+                <div className="space-y-3 text-sm text-gray-600">
+                  <div className="flex items-start space-x-2">
+                    <span className="text-green-500 font-bold">1.</span>
+                    <span>학생이 퀴즈를 완료하면 자동으로 별 1개가 지급됩니다.</span>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <span className="text-green-500 font-bold">2.</span>
+                    <span>교사는 우수한 활동에 대해 추가 별을 수동으로 지급할 수 있습니다.</span>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <span className="text-green-500 font-bold">3.</span>
+                    <span>별 개수에 따라 펫이 진화하고 새로운 기능이 해제됩니다.</span>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <span className="text-green-500 font-bold">4.</span>
+                    <span>학급 순위를 통해 학생들의 동기를 부여할 수 있습니다.</span>
+                  </div>
+                </div>
               </div>
             </div>
           )}

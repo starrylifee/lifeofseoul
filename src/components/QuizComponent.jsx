@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { awardStarsForQuiz } from '../utils/starAPI';
 
 function QuizComponent({ lessonConfig, lessonId }) {
   const { currentUser } = useAuth();
@@ -47,11 +48,13 @@ function QuizComponent({ lessonConfig, lessonId }) {
   };
 
   const handleSubmitAnswers = async () => {
-    if (!currentUser || !lessonId) return;
+    if (Object.keys(answers).length < lessonConfig.questions.length) {
+      alert('모든 문제에 답해주세요.');
+      return;
+    }
 
     setLoading(true);
-    setShowResults(true);
-
+    
     try {
       // 정답 개수 계산
       let correctCount = 0;
@@ -74,12 +77,27 @@ function QuizComponent({ lessonConfig, lessonId }) {
 
       await setDoc(activityDocRef, saveData, { merge: true });
       
+      // 별 지급 (퀴즈를 처음 완료한 경우에만)
+      let starsAwarded = 0;
+      if (correctCount === lessonConfig.questions.length && questionsCompleted !== correctCount) {
+        try {
+          starsAwarded = await awardStarsForQuiz(currentUser.uid, lessonId);
+          console.log(`별 ${starsAwarded}개 지급됨!`);
+        } catch (starError) {
+          console.error('별 지급 실패:', starError);
+          // 별 지급 실패해도 퀴즈 결과는 저장됨
+        }
+      }
+      
       setQuestionsCompleted(correctCount);
       setSavedAnswers(answers);
       
       // 성공 메시지
       if (correctCount === lessonConfig.questions.length) {
-        alert(`🎉 축하합니다! 모든 문제를 맞혔습니다! (${correctCount}/${lessonConfig.questions.length})`);
+        const message = starsAwarded > 0 
+          ? `🎉 축하합니다! 모든 문제를 맞혔습니다! ⭐ 별 ${starsAwarded}개를 획득했어요! (${correctCount}/${lessonConfig.questions.length})`
+          : `🎉 축하합니다! 모든 문제를 맞혔습니다! (${correctCount}/${lessonConfig.questions.length})`;
+        alert(message);
       } else {
         alert(`📝 결과가 저장되었습니다! 정답: ${correctCount}/${lessonConfig.questions.length}개`);
       }

@@ -985,12 +985,9 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
         if (!seen.has(marker.id)) {
           seen.set(marker.id, true);
           result.unshift(marker);
-        } else {
-          console.log("중복 마커 제거:", marker.id);
         }
       }
       
-      console.log(`마커 중복 제거: ${markers.length}개 → ${result.length}개`);
       return result;
     };
     
@@ -1042,8 +1039,6 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
                   allClassMarkers = [...allClassMarkers, ...classMarkersWithUser];
                 }
               });
-              
-              console.log(`로드된 마커: 내 마커 ${myMarkers.length}개, 다른 학생 마커 ${allClassMarkers.length}개`);
               
               // 자신의 마커와 반 전체 마커 결합 (중복 제거 로직 추가)
               const combinedMarkers = [...myMarkers, ...allClassMarkers];
@@ -2674,6 +2669,13 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       throw new Error("Firebase Storage가 초기화되지 않았습니다.");
     }
 
+    // Firebase 설정 확인
+    console.log("Firebase Storage 설정 확인:", {
+      app: !!storage.app,
+      bucket: storage.app?.options?.storageBucket,
+      projectId: storage.app?.options?.projectId
+    });
+
     try {
       const imageUrls = [];
       
@@ -2690,29 +2692,41 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
           throw new Error(`파일 크기가 너무 큽니다: ${file.name} (최대 5MB)`);
         }
         
+        // 파일 타입 확인
+        if (!file.type.startsWith('image/')) {
+          throw new Error(`이미지 파일만 업로드 가능합니다: ${file.name}`);
+        }
+        
         const fileExtension = file.name.split('.').pop();
         const fileName = `markers/${markerId}/${Date.now()}_${Math.random().toString(36).substring(2, 10)}.${fileExtension}`;
-        const storageRef = ref(storage, fileName);
         
         console.log("Storage 참조 생성:", fileName);
         
-        // 타임아웃 설정 (30초)
-        const uploadPromise = uploadBytes(storageRef, file);
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("업로드 타임아웃 (30초)")), 30000)
-        );
-        
-        // 파일 업로드 (타임아웃 포함)
-        console.log("파일 업로드 시작...");
-        const uploadResult = await Promise.race([uploadPromise, timeoutPromise]);
-        console.log("파일 업로드 완료:", uploadResult);
-        
-        // 다운로드 URL 가져오기
-        console.log("다운로드 URL 가져오기 시작...");
-        const downloadUrl = await getDownloadURL(storageRef);
-        imageUrls.push(downloadUrl);
-        
-        console.log(`이미지 ${i+1}/${files.length} 업로드 완료:`, downloadUrl);
+        try {
+          const storageRef = ref(storage, fileName);
+          console.log("Storage 참조 생성 완료:", storageRef);
+          
+          // 타임아웃 설정 (30초)
+          const uploadPromise = uploadBytes(storageRef, file);
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error("업로드 타임아웃 (30초)")), 30000)
+          );
+          
+          // 파일 업로드 (타임아웃 포함)
+          console.log("파일 업로드 시작...");
+          const uploadResult = await Promise.race([uploadPromise, timeoutPromise]);
+          console.log("파일 업로드 완료:", uploadResult);
+          
+          // 다운로드 URL 가져오기
+          console.log("다운로드 URL 가져오기 시작...");
+          const downloadUrl = await getDownloadURL(storageRef);
+          imageUrls.push(downloadUrl);
+          
+          console.log(`이미지 ${i+1}/${files.length} 업로드 완료:`, downloadUrl);
+        } catch (fileError) {
+          console.error(`파일 ${file.name} 업로드 실패:`, fileError);
+          throw fileError;
+        }
       }
       
       console.log("모든 이미지 업로드 완료:", imageUrls);
@@ -2721,16 +2735,21 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       console.error('이미지 업로드 상세 오류:', {
         message: error.message,
         code: error.code,
-        stack: error.stack
+        stack: error.stack,
+        name: error.name
       });
       
       // 구체적인 에러 메시지 제공
       if (error.code === 'storage/unauthorized') {
-        throw new Error("이미지 업로드 권한이 없습니다. 관리자에게 문의하세요.");
+        throw new Error("이미지 업로드 권한이 없습니다. Firebase Storage 규칙을 확인하세요.");
       } else if (error.code === 'storage/quota-exceeded') {
         throw new Error("저장 공간이 부족합니다.");
+      } else if (error.code === 'storage/unauthenticated') {
+        throw new Error("로그인이 필요합니다. 다시 로그인해주세요.");
       } else if (error.message.includes("타임아웃")) {
         throw new Error("네트워크가 느려서 업로드에 실패했습니다. 다시 시도해주세요.");
+      } else if (error.message.includes("Firebase Storage가 초기화되지 않았습니다")) {
+        throw new Error("Firebase 설정에 문제가 있습니다. 관리자에게 문의하세요.");
       } else {
         throw new Error(`이미지 업로드 실패: ${error.message}`);
       }
