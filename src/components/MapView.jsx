@@ -2344,6 +2344,129 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
     }
   };
 
+  // 댓글 좋아요 기능
+  const handleCommentLike = async (markerId, commentId) => {
+    if (!currentUser) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
+
+    try {
+      const markerIndex = markers.findIndex(m => m.id === markerId);
+      if (markerIndex === -1) return;
+
+      const marker = markers[markerIndex];
+      const comments = [...(marker.comments || [])];
+      const commentIndex = comments.findIndex(c => c.id === commentId);
+      
+      if (commentIndex === -1) return;
+      
+      const comment = comments[commentIndex];
+      const likedBy = comment.likedBy || [];
+      const hasLiked = likedBy.includes(currentUser.uid);
+      
+      // 좋아요 상태 업데이트
+      const updatedLikedBy = hasLiked 
+        ? likedBy.filter(uid => uid !== currentUser.uid)
+        : [...likedBy, currentUser.uid];
+      
+      const updatedComment = {
+        ...comment,
+        likes: updatedLikedBy.length,
+        likedBy: updatedLikedBy
+      };
+      
+      // 댓글 배열 업데이트
+      const updatedComments = [
+        ...comments.slice(0, commentIndex),
+        updatedComment,
+        ...comments.slice(commentIndex + 1)
+      ];
+      
+      // 마커 업데이트
+      const updatedMarker = {
+        ...marker,
+        comments: updatedComments,
+        updatedAt: new Date().toISOString()
+      };
+
+      const newMarkers = [...markers];
+      newMarkers[markerIndex] = updatedMarker;
+      setMarkers(newMarkers);
+
+      // 선택된 마커를 업데이트하여 UI 갱신
+      if(selectedMarker && selectedMarker.id === markerId) {
+        setSelectedMarker(updatedMarker);
+      }
+
+      // Firebase에 저장
+      if (isFirebaseAvailable) {
+        // 1. 자신의 문서에 저장
+        const docRefToUpdate = userActivityDocRef;
+        if (docRefToUpdate) {
+          await updateDoc(docRefToUpdate, {
+            markers: newMarkers,
+            lastUpdated: serverTimestamp()
+          });
+          console.log("댓글 좋아요 업데이트 완료:", updatedComment.likes);
+        }
+        
+        // 2. 마커 주인의 문서에도 댓글 좋아요 상태 업데이트 (다른 학생의 마커인 경우)
+        if (marker.userId !== currentUser.uid) {
+          const markerOwnerDocRef = doc(db, "lessons", String(lessonId), "classActivities", marker.classId, "students", marker.userId);
+          
+          try {
+            const ownerDocSnap = await getDoc(markerOwnerDocRef);
+            
+            if (ownerDocSnap.exists()) {
+              const ownerData = ownerDocSnap.data();
+              const ownerMarkers = ownerData.markers || [];
+              const ownerMarkerIndex = ownerMarkers.findIndex(m => m.id === markerId);
+              
+              if (ownerMarkerIndex !== -1) {
+                const ownerMarker = ownerMarkers[ownerMarkerIndex];
+                const ownerComments = [...(ownerMarker.comments || [])];
+                const ownerCommentIndex = ownerComments.findIndex(c => c.id === commentId);
+                
+                if (ownerCommentIndex !== -1) {
+                  // 댓글 좋아요 상태 업데이트
+                  ownerComments[ownerCommentIndex] = updatedComment;
+                  
+                  // 마커 업데이트
+                  const updatedOwnerMarker = {
+                    ...ownerMarker,
+                    comments: ownerComments,
+                    updatedAt: new Date().toISOString()
+                  };
+                  
+                  // 마커 배열 업데이트
+                  const updatedOwnerMarkers = [
+                    ...ownerMarkers.slice(0, ownerMarkerIndex),
+                    updatedOwnerMarker,
+                    ...ownerMarkers.slice(ownerMarkerIndex + 1)
+                  ];
+                  
+                  // 마커 주인의 문서 업데이트
+                  await updateDoc(markerOwnerDocRef, {
+                    markers: updatedOwnerMarkers,
+                    lastUpdated: serverTimestamp()
+                  });
+                  
+                  console.log("마커 주인 문서의 댓글 좋아요 업데이트 완료");
+                }
+              }
+            }
+          } catch (ownerError) {
+            console.error("마커 주인 문서 업데이트 오류:", ownerError);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('댓글 좋아요 처리 실패:', error);
+      alert('댓글 좋아요 처리에 실패했습니다.');
+    }
+  };
+
   // 공유 기능
   const handleShare = (marker) => {
     if (navigator.share) {
