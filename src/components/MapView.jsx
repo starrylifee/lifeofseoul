@@ -1065,15 +1065,31 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
     } 
     // 교사인 경우: 선택된 반의 데이터 로드
     else if (isTeacher()) {
-      const targetClassId = selectedClass === 'all' ? classId : selectedClass;
-      if (!targetClassId) return;
+      // 교사의 경우 selectedClass가 'all'이면 첫 번째 반을 선택하거나 모든 반을 보여줌
+      let targetClassId;
+      if (selectedClass === 'all') {
+        // 교사가 'all'을 선택했을 때는 첫 번째 반을 기본으로 선택
+        if (allClasses.length > 0) {
+          targetClassId = allClasses[0]; // allClasses[0].id가 아니라 allClasses[0]
+        } else {
+          // 반 목록이 없으면 교사의 classId 사용 (있는 경우)
+          targetClassId = classId;
+        }
+      } else {
+        targetClassId = selectedClass;
+      }
+      
+      if (!targetClassId) {
+        console.log("교사 모드: 표시할 반이 선택되지 않았습니다.");
+        return;
+      }
+      
+      console.log(`교사 모드: ${targetClassId} 반의 데이터를 로드합니다.`, { allClasses, selectedClass });
       
       // 특정 학생의 데이터만 보기
       if (selectedStudent !== 'all') {
         const studentDocRef = getUserActivityDocRef(selectedStudent, targetClassId);
         if (!studentDocRef) return;
-        
-
         
         const unsubscribe = onSnapshot(studentDocRef, (docSnap) => {
           if (docSnap.exists()) {
@@ -1100,12 +1116,13 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       else {
         const classActivitiesRef = collection(db, "lessons", String(lessonId), "classActivities", targetClassId, "students");
         
-
-        
         // 복잡한 병합 로직을 위해 한 번 데이터 로드 후 처리
         const fetchAllClassData = async () => {
           try {
+            console.log("fetchAllClassData 시작:", { targetClassId, lessonId });
             const querySnapshot = await getDocs(classActivitiesRef);
+            
+            console.log("Firestore 쿼리 결과:", querySnapshot.size, "개 문서");
             
             let allMarkers = [];
             let allShapes = [];
@@ -1115,6 +1132,11 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
             
             querySnapshot.forEach((doc) => {
               const data = doc.data();
+              console.log(`학생 ${doc.id} 데이터:`, { 
+                markersCount: data.markers?.length || 0, 
+                shapesCount: data.shapes?.length || 0 
+              });
+              
               if (data.markers) {
                 // 중복되지 않은 마커만 추가
                 const uniqueMarkers = data.markers.filter(marker => !markerIds.has(marker.id));
@@ -1139,7 +1161,7 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
               if (data.shapes) allShapes = [...allShapes, ...data.shapes];
             });
             
-            console.log(`교사 모드 - 로드된 마커: ${allMarkers.length}개`);
+            console.log(`교사 모드 - 로드된 마커: ${allMarkers.length}개`, allMarkers);
             
             // 중복 제거 로직 추가
             setMarkers(removeDuplicateMarkers(allMarkers));
