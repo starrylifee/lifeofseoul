@@ -44,15 +44,48 @@ export const getStudentStarHistory = async (userId) => {
   }
 };
 
-// 별 지급하기 (퀴즈 완료 시 자동)
-export const awardStarsForQuiz = async (userId, lessonId) => {
+// 특정 레슨에서 이미 별을 받았는지 확인
+export const hasReceivedStarsForLesson = async (userId, lessonId) => {
   try {
-    const starRecord = createStarRecord(
-      userId, 
-      lessonId, 
-      STAR_SOURCES.QUIZ_COMPLETION, 
-      STAR_SOURCES.QUIZ_COMPLETION.amount
+    const starHistoryQuery = query(
+      collection(db, 'starHistory'),
+      where('userId', '==', userId),
+      where('lessonId', '==', lessonId),
+      where('source', 'in', ['quiz', 'perfect_quiz'])
     );
+    const snapshot = await getDocs(starHistoryQuery);
+    return snapshot.docs.length > 0;
+  } catch (error) {
+    console.error('Error checking lesson star history:', error);
+    return false;
+  }
+};
+
+// 별 지급하기 (퀴즈 완료 시 자동) - 만점 시 2개, 일반 완료 시 1개
+export const awardStarsForQuiz = async (userId, lessonId, isPerfectScore = false) => {
+  try {
+    // 이미 이 레슨에서 별을 받았는지 확인
+    const alreadyReceived = await hasReceivedStarsForLesson(userId, lessonId);
+    if (alreadyReceived) {
+      console.log('이미 이 레슨에서 별을 받았습니다.');
+      return 0; // 중복 지급 방지
+    }
+
+    // 만점 시 2개, 일반 완료 시 1개
+    const starAmount = isPerfectScore ? 2 : 1;
+    const sourceType = isPerfectScore ? 'perfect_quiz' : 'quiz';
+    const description = isPerfectScore ? '퀴즈 만점 완료' : '퀴즈 완료';
+    
+    const starRecord = {
+      userId,
+      lessonId,
+      source: sourceType,
+      amount: starAmount,
+      description,
+      teacherId: null,
+      timestamp: new Date(),
+      id: `star_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    };
     
     // 별 기록 추가
     await addDoc(collection(db, 'starHistory'), starRecord);
@@ -61,11 +94,11 @@ export const awardStarsForQuiz = async (userId, lessonId) => {
     const currentStars = await getStudentStars(userId);
     await setDoc(doc(db, 'stars', userId), {
       userId,
-      totalStars: currentStars + starRecord.amount,
+      totalStars: currentStars + starAmount,
       lastUpdated: new Date()
     }, { merge: true });
     
-    return starRecord.amount;
+    return starAmount;
   } catch (error) {
     console.error('Error awarding quiz stars:', error);
     throw error;

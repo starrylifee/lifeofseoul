@@ -77,26 +77,33 @@ function QuizComponent({ lessonConfig, lessonId }) {
 
       await setDoc(activityDocRef, saveData, { merge: true });
       
-      // 별 지급 (퀴즈를 처음 완료한 경우에만)
+      // 별 지급 (만점 시 2개, 일반 완료 시 1개)
       let starsAwarded = 0;
-      if (correctCount === lessonConfig.questions.length && questionsCompleted !== correctCount) {
-        try {
-          starsAwarded = await awardStarsForQuiz(currentUser.uid, lessonId);
+      const isPerfectScore = correctCount === lessonConfig.questions.length;
+      
+      try {
+        starsAwarded = await awardStarsForQuiz(currentUser.uid, lessonId, isPerfectScore);
+        if (starsAwarded > 0) {
           console.log(`별 ${starsAwarded}개 지급됨!`);
-        } catch (starError) {
-          console.error('별 지급 실패:', starError);
-          // 별 지급 실패해도 퀴즈 결과는 저장됨
         }
+      } catch (starError) {
+        console.error('별 지급 실패:', starError);
+        // 별 지급 실패해도 퀴즈 결과는 저장됨
       }
       
       setQuestionsCompleted(correctCount);
       setSavedAnswers(answers);
       
       // 성공 메시지
-      if (correctCount === lessonConfig.questions.length) {
+      if (isPerfectScore) {
         const message = starsAwarded > 0 
           ? `🎉 축하합니다! 모든 문제를 맞혔습니다! ⭐ 별 ${starsAwarded}개를 획득했어요! (${correctCount}/${lessonConfig.questions.length})`
           : `🎉 축하합니다! 모든 문제를 맞혔습니다! (${correctCount}/${lessonConfig.questions.length})`;
+        alert(message);
+      } else if (correctCount > 0) {
+        const message = starsAwarded > 0 
+          ? `📝 결과가 저장되었습니다! 정답: ${correctCount}/${lessonConfig.questions.length}개 ⭐ 별 ${starsAwarded}개 획득!`
+          : `📝 결과가 저장되었습니다! 정답: ${correctCount}/${lessonConfig.questions.length}개`;
         alert(message);
       } else {
         alert(`📝 결과가 저장되었습니다! 정답: ${correctCount}/${lessonConfig.questions.length}개`);

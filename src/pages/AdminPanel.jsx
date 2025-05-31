@@ -778,7 +778,7 @@ function AdminPanel() {
                   <div className="bg-white rounded-xl p-4 text-center">
                     <div className="text-3xl mb-2">🎯</div>
                     <h4 className="font-bold text-gray-800">퀴즈 완료</h4>
-                    <p className="text-sm text-gray-600">자동으로 1개 지급</p>
+                    <p className="text-sm text-gray-600">만점 시 2개, 일반 완료 시 1개</p>
                   </div>
                   <div className="bg-white rounded-xl p-4 text-center">
                     <div className="text-3xl mb-2">👨‍🏫</div>
@@ -787,8 +787,8 @@ function AdminPanel() {
                   </div>
                   <div className="bg-white rounded-xl p-4 text-center">
                     <div className="text-3xl mb-2">🏆</div>
-                    <h4 className="font-bold text-gray-800">최대 24개</h4>
-                    <p className="text-sm text-gray-600">8개 레슨 × 3개</p>
+                    <h4 className="font-bold text-gray-800">최대 32개</h4>
+                    <p className="text-sm text-gray-600">8개 레슨 × 최대 4개</p>
                   </div>
                 </div>
                 
@@ -798,27 +798,27 @@ function AdminPanel() {
                     <div className="text-center p-2 bg-gray-50 rounded">
                       <div className="text-2xl">🐣</div>
                       <div className="font-medium">서울 새내기</div>
-                      <div className="text-xs text-gray-600">0-3개</div>
+                      <div className="text-xs text-gray-600">0-4개</div>
                     </div>
                     <div className="text-center p-2 bg-gray-50 rounded">
                       <div className="text-2xl">🦁</div>
                       <div className="font-medium">서울 탐험가</div>
-                      <div className="text-xs text-gray-600">4-7개</div>
+                      <div className="text-xs text-gray-600">5-9개</div>
                     </div>
                     <div className="text-center p-2 bg-gray-50 rounded">
                       <div className="text-2xl">🎓</div>
                       <div className="font-medium">서울 전문가</div>
-                      <div className="text-xs text-gray-600">8-15개</div>
+                      <div className="text-xs text-gray-600">10-19개</div>
                     </div>
                     <div className="text-center p-2 bg-gray-50 rounded">
                       <div className="text-2xl">👑</div>
                       <div className="font-medium">서울 마스터</div>
-                      <div className="text-xs text-gray-600">16-20개</div>
+                      <div className="text-xs text-gray-600">20-27개</div>
                     </div>
                     <div className="text-center p-2 bg-gray-50 rounded">
                       <div className="text-2xl">✨</div>
                       <div className="font-medium">서울 전설</div>
-                      <div className="text-xs text-gray-600">21-24개</div>
+                      <div className="text-xs text-gray-600">28-32개</div>
                     </div>
                   </div>
                 </div>
@@ -832,7 +832,7 @@ function AdminPanel() {
                 <div className="space-y-3 text-sm text-gray-600">
                   <div className="flex items-start space-x-2">
                     <span className="text-green-500 font-bold">1.</span>
-                    <span>학생이 퀴즈를 완료하면 자동으로 별 1개가 지급됩니다.</span>
+                    <span>학생이 퀴즈를 완료하면 자동으로 별이 지급됩니다. (만점 시 2개, 일반 완료 시 1개)</span>
                   </div>
                   <div className="flex items-start space-x-2">
                     <span className="text-green-500 font-bold">2.</span>
@@ -845,6 +845,10 @@ function AdminPanel() {
                   <div className="flex items-start space-x-2">
                     <span className="text-green-500 font-bold">4.</span>
                     <span>학급 순위를 통해 학생들의 동기를 부여할 수 있습니다.</span>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <span className="text-green-500 font-bold">5.</span>
+                    <span>각 레슨에서는 한 번만 별을 받을 수 있어 중복 지급이 방지됩니다.</span>
                   </div>
                 </div>
               </div>

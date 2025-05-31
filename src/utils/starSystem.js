@@ -4,7 +4,7 @@ export const STAR_LEVELS = [
     level: 1,
     name: "서울 새내기",
     minStars: 0,
-    maxStars: 3,
+    maxStars: 4,
     pet: {
       name: "꼬마 해치",
       emoji: "🐣",
@@ -15,8 +15,8 @@ export const STAR_LEVELS = [
   {
     level: 2,
     name: "서울 탐험가",
-    minStars: 4,
-    maxStars: 7,
+    minStars: 5,
+    maxStars: 9,
     pet: {
       name: "활발한 해치",
       emoji: "🦁",
@@ -27,8 +27,8 @@ export const STAR_LEVELS = [
   {
     level: 3,
     name: "서울 전문가",
-    minStars: 8,
-    maxStars: 15,
+    minStars: 10,
+    maxStars: 19,
     pet: {
       name: "똑똑한 해치",
       emoji: "🎓",
@@ -39,8 +39,8 @@ export const STAR_LEVELS = [
   {
     level: 4,
     name: "서울 마스터",
-    minStars: 16,
-    maxStars: 20,
+    minStars: 20,
+    maxStars: 27,
     pet: {
       name: "왕관 해치",
       emoji: "👑",
@@ -51,8 +51,8 @@ export const STAR_LEVELS = [
   {
     level: 5,
     name: "서울 전설",
-    minStars: 21,
-    maxStars: 24,
+    minStars: 28,
+    maxStars: 32,
     pet: {
       name: "전설의 해치",
       emoji: "✨",
@@ -92,6 +92,11 @@ export const STAR_SOURCES = {
     type: "quiz",
     amount: 1,
     description: "퀴즈 완료"
+  },
+  PERFECT_QUIZ: {
+    type: "perfect_quiz",
+    amount: 2,
+    description: "퀴즈 만점 완료"
   },
   TEACHER_REWARD: {
     type: "teacher",
