@@ -9,7 +9,6 @@ const TeacherStarPanel = ({ lessonId }) => {
   const { currentUser, classId } = useAuth();
   const [students, setStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState('');
-  const [starReason, setStarReason] = useState('');
   const [selectedSource, setSelectedSource] = useState('TEACHER_REWARD');
   const [loading, setLoading] = useState(false);
   const [classRanking, setClassRanking] = useState([]);
@@ -18,18 +17,34 @@ const TeacherStarPanel = ({ lessonId }) => {
   // 학급 학생 목록 로드
   useEffect(() => {
     const fetchStudents = async () => {
-      if (!classId) return;
+      console.log('fetchStudents 시작');
+      console.log('currentUser:', currentUser);
+      console.log('classId:', classId);
+      
+      if (!classId) {
+        console.log('classId가 없어서 학생 목록 로드 중단');
+        return;
+      }
+      
+      if (!currentUser) {
+        console.log('currentUser가 없어서 학생 목록 로드 중단');
+        return;
+      }
       
       try {
+        console.log('학생 목록 로드 시도, classId:', classId);
         const studentList = await getClassStudents(classId);
+        console.log('로드된 학생 목록:', studentList);
+        console.log('학생 수:', studentList.length);
         setStudents(studentList);
       } catch (error) {
         console.error('학생 목록 로드 실패:', error);
+        console.error('에러 상세:', error.message);
       }
     };
 
     fetchStudents();
-  }, [classId]);
+  }, [classId, currentUser]);
 
   // 학급 별 순위 로드
   const fetchClassRanking = async () => {
@@ -47,27 +62,28 @@ const TeacherStarPanel = ({ lessonId }) => {
 
   // 별 지급하기
   const handleAwardStar = async () => {
-    if (!selectedStudent || !starReason.trim()) {
-      alert('학생과 사유를 모두 선택/입력해주세요.');
+    if (!selectedStudent) {
+      alert('학생을 선택해주세요.');
       return;
     }
 
     setLoading(true);
     try {
       const source = STAR_SOURCES[selectedSource];
+      const reason = getSourceOptions().find(opt => opt.key === selectedSource)?.label || '교사 보상';
+      
       await awardStarsByTeacher(
         currentUser.uid,
         selectedStudent,
         lessonId,
         source,
-        starReason
+        reason
       );
 
       alert(`별 ${source.amount}개를 성공적으로 지급했습니다! 🌟`);
       
       // 폼 초기화
       setSelectedStudent('');
-      setStarReason('');
       
       // 순위 새로고침 (열려있는 경우)
       if (showRanking) {
@@ -115,15 +131,20 @@ const TeacherStarPanel = ({ lessonId }) => {
             <option value="">학생을 선택하세요</option>
             {students.map(student => (
               <option key={student.id} value={student.id}>
-                {student.studentNumber}번 - {student.email.split('@')[0]}
+                {student.studentNumber ? `${student.studentNumber}번 - ` : ''}{student.email?.split('@')[0] || student.name || student.id}
               </option>
             ))}
           </select>
+          {students.length === 0 && (
+            <p className="text-xs text-red-500 mt-1">
+              학생 목록을 불러오는 중이거나 등록된 학생이 없습니다.
+            </p>
+          )}
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            🎯 보상 유형
+            🎯 지급 사유
           </label>
           <select
             value={selectedSource}
@@ -141,21 +162,9 @@ const TeacherStarPanel = ({ lessonId }) => {
           </p>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            📝 지급 사유
-          </label>
-          <textarea
-            value={starReason}
-            onChange={(e) => setStarReason(e.target.value)}
-            placeholder="별을 지급하는 이유를 적어주세요..."
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 h-20 resize-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-          />
-        </div>
-
         <button
           onClick={handleAwardStar}
-          disabled={loading || !selectedStudent || !starReason.trim()}
+          disabled={loading || !selectedStudent}
           className="w-full bg-gradient-to-r from-yellow-400 to-orange-400 text-white font-bold py-3 px-4 rounded-lg hover:from-yellow-500 hover:to-orange-500 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300"
         >
           {loading ? '지급 중...' : `⭐ 별 ${STAR_SOURCES[selectedSource]?.amount || 1}개 지급하기`}

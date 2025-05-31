@@ -96,17 +96,36 @@ export const updateLessonProgress = async (lessonId, userId, stepIndex, isComple
 // 학급 학생 목록 가져오기
 export const getClassStudents = async (classId) => {
   try {
+    console.log('getClassStudents 호출됨, classId:', classId);
+    
     const studentsQuery = query(
       collection(db, 'users'),
       where('role', '==', 'student'),
-      where('classId', '==', classId),
-      orderBy('studentNumber')
+      where('classId', '==', classId)
     );
     
+    console.log('Firestore 쿼리 실행 중...');
     const studentDocs = await getDocs(studentsQuery);
-    return studentDocs.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    console.log('쿼리 결과 문서 수:', studentDocs.docs.length);
+    
+    const students = studentDocs.docs.map(doc => {
+      const data = { id: doc.id, ...doc.data() };
+      return data;
+    });
+    
+    // 클라이언트에서 studentNumber로 정렬
+    students.sort((a, b) => {
+      const numA = a.studentNumber || 0;
+      const numB = b.studentNumber || 0;
+      return numA - numB;
+    });
+    
+    console.log('최종 학생 목록 (정렬됨):', students.length, '명');
+    return students;
   } catch (error) {
     console.error('Error getting class students:', error);
+    console.error('에러 코드:', error.code);
+    console.error('에러 메시지:', error.message);
     throw error;
   }
 };

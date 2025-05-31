@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase';
 import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
 import StarLevelDisplay from '../components/StarLevelDisplay';
+import TeacherStarPanel from '../components/TeacherStarPanel';
 import { getStudentStars } from '../utils/starAPI';
 
 const Dashboard = () => {
@@ -189,6 +190,13 @@ const Dashboard = () => {
               </div>
             </div>
           )}
+
+          {/* 교사용 별 지급 시스템 */}
+          {isTeacher() && (
+            <div className="mb-8 md:mb-12">
+              <TeacherStarPanel />
+            </div>
+          )}
         </div>
 
         {/* 레슨 진행 상태 카드들 (학생용) */}
@@ -244,7 +252,81 @@ const Dashboard = () => {
 
         {/* 메뉴 카드들 */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-          {/* 교실 들어가기 */}
+          {/* 교사용 메뉴 */}
+          {isTeacher() && (
+            <>
+              {/* 학급 관리 */}
+              <Link 
+                to="/admin" 
+                className="group bg-white rounded-3xl p-6 md:p-8 shadow-soft hover:shadow-friendly transition-all duration-300 hover:scale-105 border-2 border-transparent hover:border-seoul-200"
+              >
+                <div className="text-center">
+                  <div className="bg-gradient-to-br from-seoul-400 to-seoul-600 rounded-2xl p-4 md:p-6 mb-4 inline-block">
+                    <span className="text-4xl md:text-5xl">👥</span>
+                  </div>
+                  <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-2 font-korean">
+                    학급 관리
+                  </h3>
+                  <p className="text-gray-600 text-sm md:text-base font-korean">
+                    학생 등록, 학급 설정 등을 관리하세요
+                  </p>
+                  <div className="mt-4 bg-seoul-50 rounded-xl p-3">
+                    <span className="text-seoul-600 font-medium text-sm font-korean">
+                      🎓 학생 관리 및 설정
+                    </span>
+                  </div>
+                </div>
+              </Link>
+
+              {/* 학급 진행 현황 */}
+              <Link 
+                to="/teacher-progress" 
+                className="group bg-white rounded-3xl p-6 md:p-8 shadow-soft hover:shadow-friendly transition-all duration-300 hover:scale-105 border-2 border-transparent hover:border-hangang-200"
+              >
+                <div className="text-center">
+                  <div className="bg-gradient-to-br from-hangang-400 to-hangang-600 rounded-2xl p-4 md:p-6 mb-4 inline-block">
+                    <span className="text-4xl md:text-5xl">📊</span>
+                  </div>
+                  <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-2 font-korean">
+                    학급 진행 현황
+                  </h3>
+                  <p className="text-gray-600 text-sm md:text-base font-korean">
+                    학생들의 학습 진행 상황을 확인하세요
+                  </p>
+                  <div className="mt-4 bg-hangang-50 rounded-xl p-3">
+                    <span className="text-hangang-600 font-medium text-sm font-korean">
+                      📈 전체 학급 분석
+                    </span>
+                  </div>
+                </div>
+              </Link>
+
+              {/* 마커 관리 */}
+              <Link 
+                to="/explore" 
+                className="group bg-white rounded-3xl p-6 md:p-8 shadow-soft hover:shadow-friendly transition-all duration-300 hover:scale-105 border-2 border-sunshine-100 hover:border-sunshine-200"
+              >
+                <div className="text-center">
+                  <div className="bg-gradient-to-br from-sunshine-400 to-sunshine-600 rounded-2xl p-4 md:p-6 mb-4 inline-block">
+                    <span className="text-4xl md:text-5xl">🗺️</span>
+                  </div>
+                  <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-2 font-korean">
+                    마커 관리
+                  </h3>
+                  <p className="text-gray-600 text-sm md:text-base font-korean">
+                    학생들이 만든 마커를 확인하고 관리하세요
+                  </p>
+                  <div className="mt-4 bg-sunshine-50 rounded-xl p-3">
+                    <span className="text-sunshine-600 font-medium text-sm font-korean">
+                      📍 학급 마커 모니터링
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            </>
+          )}
+
+          {/* 공통 메뉴 - 교실 들어가기 */}
           <Link 
             to="/lesson/1" 
             className="group bg-white rounded-3xl p-6 md:p-8 shadow-soft hover:shadow-friendly transition-all duration-300 hover:scale-105 border-2 border-transparent hover:border-seoul-200"
@@ -254,10 +336,10 @@ const Dashboard = () => {
                 <span className="text-4xl md:text-5xl">🏫</span>
               </div>
               <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-2 font-korean">
-                교실 들어가기
+                {isTeacher() ? '수업 미리보기' : '교실 들어가기'}
               </h3>
               <p className="text-gray-600 text-sm md:text-base font-korean">
-                첫 번째 수업부터 시작해보세요!
+                {isTeacher() ? '수업 내용을 미리 확인해보세요!' : '첫 번째 수업부터 시작해보세요!'}
               </p>
               <div className="mt-4 bg-seoul-50 rounded-xl p-3">
                 <span className="text-seoul-600 font-medium text-sm font-korean">
@@ -290,83 +372,112 @@ const Dashboard = () => {
             </div>
           </Link>
 
-          {/* 내 학습 현황 */}
-          <Link 
-            to="/progress" 
-            className="group bg-white rounded-3xl p-6 md:p-8 shadow-soft hover:shadow-friendly transition-all duration-300 hover:scale-105 border-2 border-hangang-100 hover:border-hangang-200"
-          >
-            <div className="text-center">
-              <div className="bg-gradient-to-br from-hangang-400 to-hangang-600 rounded-2xl p-4 md:p-6 mb-4 inline-block">
-                <span className="text-4xl md:text-5xl">📊</span>
+          {/* 학습 현황 (학생용) / 설정 (교사용) */}
+          {isStudent() ? (
+            <Link 
+              to="/progress" 
+              className="group bg-white rounded-3xl p-6 md:p-8 shadow-soft hover:shadow-friendly transition-all duration-300 hover:scale-105 border-2 border-hangang-100 hover:border-hangang-200"
+            >
+              <div className="text-center">
+                <div className="bg-gradient-to-br from-hangang-400 to-hangang-600 rounded-2xl p-4 md:p-6 mb-4 inline-block">
+                  <span className="text-4xl md:text-5xl">📊</span>
+                </div>
+                <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-2 font-korean">
+                  내 학습 현황
+                </h3>
+                <p className="text-gray-600 text-sm md:text-base font-korean">
+                  지금까지의 학습 기록을 확인해보세요
+                </p>
+                <div className="mt-4 space-y-2">
+                  <div className="bg-hangang-50 rounded-xl p-3">
+                    <span className="text-hangang-600 font-medium text-sm font-korean">
+                      🎯 완료한 수업: {overallProgress.completed}/{overallProgress.total}개
+                    </span>
+                  </div>
+                  <div className="bg-sunshine-50 rounded-xl p-3">
+                    <span className="text-sunshine-600 font-medium text-sm font-korean">
+                      ⭐ 획득한 별: {totalStars}개
+                    </span>
+                  </div>
+                </div>
               </div>
-              <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-2 font-korean">
-                내 학습 현황
-              </h3>
-              <p className="text-gray-600 text-sm md:text-base font-korean">
-                지금까지의 학습 기록을 확인해보세요
-              </p>
-              <div className="mt-4 space-y-2">
-                <div className="bg-hangang-50 rounded-xl p-3">
-                  <span className="text-hangang-600 font-medium text-sm font-korean">
-                    🎯 완료한 수업: {overallProgress.completed}/{overallProgress.total}개
+            </Link>
+          ) : (
+            <Link 
+              to="/settings" 
+              className="group bg-white rounded-3xl p-6 md:p-8 shadow-soft hover:shadow-friendly transition-all duration-300 hover:scale-105 border-2 border-gray-100 hover:border-gray-200"
+            >
+              <div className="text-center">
+                <div className="bg-gradient-to-br from-gray-400 to-gray-600 rounded-2xl p-4 md:p-6 mb-4 inline-block">
+                  <span className="text-4xl md:text-5xl">⚙️</span>
+                </div>
+                <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-2 font-korean">
+                  설정
+                </h3>
+                <p className="text-gray-600 text-sm md:text-base font-korean">
+                  계정 정보와 앱 설정을 변경할 수 있어요
+                </p>
+                <div className="mt-4 bg-gray-50 rounded-xl p-3">
+                  <span className="text-gray-600 font-medium text-sm font-korean">
+                    🔧 개인 설정 관리
                   </span>
                 </div>
-                <div className="bg-sunshine-50 rounded-xl p-3">
-                  <span className="text-sunshine-600 font-medium text-sm font-korean">
-                    ⭐ 획득한 별: {totalStars}개
-                  </span>
+              </div>
+            </Link>
+          )}
+
+          {/* 학생용 전용 메뉴들 */}
+          {isStudent() && (
+            <>
+              {/* 서울 탐험하기 */}
+              <Link 
+                to="/explore" 
+                className="group bg-white rounded-3xl p-6 md:p-8 shadow-soft hover:shadow-friendly transition-all duration-300 hover:scale-105 border-2 border-sunshine-100 hover:border-sunshine-200"
+              >
+                <div className="text-center">
+                  <div className="bg-gradient-to-br from-sunshine-400 to-sunshine-600 rounded-2xl p-4 md:p-6 mb-4 inline-block">
+                    <span className="text-4xl md:text-5xl">🗺️</span>
+                  </div>
+                  <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-2 font-korean">
+                    서울 탐험하기
+                  </h3>
+                  <p className="text-gray-600 text-sm md:text-base font-korean">
+                    지도에서 서울의 다양한 모습을 발견해보세요
+                  </p>
+                  <div className="mt-4 bg-sunshine-50 rounded-xl p-3">
+                    <span className="text-sunshine-600 font-medium text-sm font-korean">
+                      🏛️ 궁궐, 🏞️ 공원, 🌉 한강 등
+                    </span>
+                  </div>
                 </div>
-              </div>
-            </div>
-          </Link>
+              </Link>
 
-          {/* 서울 탐험하기 */}
-          <Link 
-            to="/explore" 
-            className="group bg-white rounded-3xl p-6 md:p-8 shadow-soft hover:shadow-friendly transition-all duration-300 hover:scale-105 border-2 border-sunshine-100 hover:border-sunshine-200"
-          >
-            <div className="text-center">
-              <div className="bg-gradient-to-br from-sunshine-400 to-sunshine-600 rounded-2xl p-4 md:p-6 mb-4 inline-block">
-                <span className="text-4xl md:text-5xl">🗺️</span>
-              </div>
-              <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-2 font-korean">
-                서울 탐험하기
-              </h3>
-              <p className="text-gray-600 text-sm md:text-base font-korean">
-                지도에서 서울의 다양한 모습을 발견해보세요
-              </p>
-              <div className="mt-4 bg-sunshine-50 rounded-xl p-3">
-                <span className="text-sunshine-600 font-medium text-sm font-korean">
-                  🏛️ 궁궐, 🏞️ 공원, 🌉 한강 등
-                </span>
-              </div>
-            </div>
-          </Link>
+              {/* 친구들과 공유 */}
+              <Link 
+                to="/share" 
+                className="group bg-white rounded-3xl p-6 md:p-8 shadow-soft hover:shadow-friendly transition-all duration-300 hover:scale-105 border-2 border-purple-100 hover:border-purple-200"
+              >
+                <div className="text-center">
+                  <div className="bg-gradient-to-br from-purple-400 to-purple-600 rounded-2xl p-4 md:p-6 mb-4 inline-block">
+                    <span className="text-4xl md:text-5xl">👥</span>
+                  </div>
+                  <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-2 font-korean">
+                    친구들과 공유
+                  </h3>
+                  <p className="text-gray-600 text-sm md:text-base font-korean">
+                    내가 만든 지도를 친구들과 나눠보세요
+                  </p>
+                  <div className="mt-4 bg-purple-50 rounded-xl p-3">
+                    <span className="text-purple-600 font-medium text-sm font-korean">
+                      💬 학급 공유 보기
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            </>
+          )}
 
-          {/* 친구들과 공유 */}
-          <Link 
-            to="/share" 
-            className="group bg-white rounded-3xl p-6 md:p-8 shadow-soft hover:shadow-friendly transition-all duration-300 hover:scale-105 border-2 border-purple-100 hover:border-purple-200"
-          >
-            <div className="text-center">
-              <div className="bg-gradient-to-br from-purple-400 to-purple-600 rounded-2xl p-4 md:p-6 mb-4 inline-block">
-                <span className="text-4xl md:text-5xl">👥</span>
-              </div>
-              <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-2 font-korean">
-                친구들과 공유
-              </h3>
-              <p className="text-gray-600 text-sm md:text-base font-korean">
-                내가 만든 지도를 친구들과 나눠보세요
-              </p>
-              <div className="mt-4 bg-purple-50 rounded-xl p-3">
-                <span className="text-purple-600 font-medium text-sm font-korean">
-                  💬 학급 공유 보기
-                </span>
-              </div>
-            </div>
-          </Link>
-
-          {/* 도움말 */}
+          {/* 공통 메뉴 - 도움말 */}
           <Link 
             to="/help" 
             className="group bg-white rounded-3xl p-6 md:p-8 shadow-soft hover:shadow-friendly transition-all duration-300 hover:scale-105 border-2 border-pink-100 hover:border-pink-200"
@@ -384,29 +495,6 @@ const Dashboard = () => {
               <div className="mt-4 bg-pink-50 rounded-xl p-3">
                 <span className="text-pink-600 font-medium text-sm font-korean">
                   📖 사용 가이드 보기
-                </span>
-              </div>
-            </div>
-          </Link>
-
-          {/* 설정 */}
-          <Link 
-            to="/settings" 
-            className="group bg-white rounded-3xl p-6 md:p-8 shadow-soft hover:shadow-friendly transition-all duration-300 hover:scale-105 border-2 border-gray-100 hover:border-gray-200"
-          >
-            <div className="text-center">
-              <div className="bg-gradient-to-br from-gray-400 to-gray-600 rounded-2xl p-4 md:p-6 mb-4 inline-block">
-                <span className="text-4xl md:text-5xl">⚙️</span>
-              </div>
-              <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-2 font-korean">
-                설정
-              </h3>
-              <p className="text-gray-600 text-sm md:text-base font-korean">
-                내 정보와 앱 설정을 변경할 수 있어요
-              </p>
-              <div className="mt-4 bg-gray-50 rounded-xl p-3">
-                <span className="text-gray-600 font-medium text-sm font-korean">
-                  🔧 개인 설정 관리
                 </span>
               </div>
             </div>
