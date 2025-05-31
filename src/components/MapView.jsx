@@ -1093,7 +1093,8 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
         return;
       }
       
-      console.log(`교사 모드: ${targetClassId} 반의 데이터를 로드합니다.`, { allClasses, selectedClass });
+      // 콘솔 로그 제거 - 반복 호출 방지
+      // console.log(`교사 모드: ${targetClassId} 반의 데이터를 로드합니다.`, { allClasses, selectedClass });
       
       // 특정 학생의 데이터만 보기
       if (selectedStudent !== 'all') {
@@ -1128,10 +1129,12 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
         // 복잡한 병합 로직을 위해 한 번 데이터 로드 후 처리
         const fetchAllClassData = async () => {
           try {
-            console.log("fetchAllClassData 시작:", { targetClassId, lessonId });
+            // 콘솔 로그 제거 - 반복 호출 방지
+            // console.log("fetchAllClassData 시작:", { targetClassId, lessonId });
             const querySnapshot = await getDocs(classActivitiesRef);
             
-            console.log("Firestore 쿼리 결과:", querySnapshot.size, "개 문서");
+            // 콘솔 로그 제거 - 반복 호출 방지
+            // console.log("Firestore 쿼리 결과:", querySnapshot.size, "개 문서");
             
             let allMarkers = [];
             let allShapes = [];
@@ -1141,10 +1144,11 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
             
             querySnapshot.forEach((doc) => {
               const data = doc.data();
-              console.log(`학생 ${doc.id} 데이터:`, { 
-                markersCount: data.markers?.length || 0, 
-                shapesCount: data.shapes?.length || 0 
-              });
+              // 콘솔 로그 제거 - 반복 호출 방지
+              // console.log(`학생 ${doc.id} 데이터:`, { 
+              //   markersCount: data.markers?.length || 0, 
+              //   shapesCount: data.shapes?.length || 0 
+              // });
               
               if (data.markers) {
                 // 중복되지 않은 마커만 추가
@@ -1170,7 +1174,8 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
               if (data.shapes) allShapes = [...allShapes, ...data.shapes];
             });
             
-            console.log(`교사 모드 - 로드된 마커: ${allMarkers.length}개`, allMarkers);
+            // 콘솔 로그 제거 - 반복 호출 방지
+            // console.log(`교사 모드 - 로드된 마커: ${allMarkers.length}개`, allMarkers);
             
             // 중복 제거 로직 추가
             setMarkers(removeDuplicateMarkers(allMarkers));
@@ -1574,6 +1579,9 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
   const handleMarkerDelete = async (markerId) => {
     console.log("마커 삭제 함수 호출:", markerId);
     
+    // 상태 복원을 위한 백업 (함수 시작 부분에서 정의)
+    const previousMarkers = [...markers];
+    
     try {
       // 삭제할 마커 찾기
       const markerToDelete = markers.find(m => m.id === markerId);
@@ -1593,56 +1601,94 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
         return;
       }
       
-      // 마커 소유자의 문서 참조 가져오기
-      let docRefToUpdate;
-      
-      if (hasTeacherRole && !isOwner) {
-        // 교사가 학생 마커 삭제 - 해당 학생의 문서 참조 가져오기
-        docRefToUpdate = doc(db, "lessons", String(lessonId), "classActivities", classId, "students", markerToDelete.userId);
-        console.log("교사가 학생 마커 삭제:", { markerUserId: markerToDelete.userId, docRef: !!docRefToUpdate });
-      } else {
-        // 자신의 마커 삭제
-        docRefToUpdate = userActivityDocRef;
-        console.log("자신의 마커 삭제:", { docRef: !!docRefToUpdate });
-      }
-      
-      if (!docRefToUpdate) {
-        console.error("문서 참조를 가져올 수 없습니다.");
-        alert('문서 참조를 가져올 수 없습니다.');
-        return;
-      }
-  
       // Optimistically update local state
-      const previousMarkers = [...markers];
       setMarkers((prevMarkers) => prevMarkers.filter((m) => m.id !== markerId));
-  
-      // Firestore에서 삭제
-      console.log("Firestore 업데이트 시도:", {
-        docRefPath: docRefToUpdate.path,
-        markerIdToDelete: markerId
-      });
       
-      // 안전한 방법으로 마커 업데이트
-      const currentDoc = await getDoc(docRefToUpdate);
-      if (currentDoc.exists()) {
-        const docData = currentDoc.data();
-        const updatedMarkers = (docData.markers || []).filter(m => m.id !== markerId);
+      // 교사인 경우: 모든 학생 문서에서 중복 마커 제거
+      if (hasTeacherRole) {
+        console.log("교사 권한으로 모든 학생 문서에서 마커 삭제 시도");
         
-        await updateDoc(docRefToUpdate, {
-          markers: updatedMarkers,
-          lastUpdated: serverTimestamp()
-        });
+        // 현재 반의 모든 학생 문서 확인
+        const targetClassId = markerToDelete.classId || classId;
+        const classActivitiesRef = collection(db, "lessons", String(lessonId), "classActivities", targetClassId, "students");
         
-        console.log(`Marker ${markerId} deleted from Firestore successfully`);
-      } else {
-        throw new Error("문서가 존재하지 않습니다");
+        try {
+          const querySnapshot = await getDocs(classActivitiesRef);
+          const deletePromises = [];
+          
+          querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            if (data.markers && data.markers.some(m => m.id === markerId)) {
+              // 해당 마커가 있는 문서에서 삭제
+              const updatedMarkers = data.markers.filter(m => m.id !== markerId);
+              const docRef = doc.ref;
+              
+              deletePromises.push(
+                updateDoc(docRef, {
+                  markers: updatedMarkers,
+                  lastUpdated: serverTimestamp()
+                })
+              );
+              
+              console.log(`학생 ${doc.id} 문서에서 마커 ${markerId} 삭제 예정`);
+            }
+          });
+          
+          // 모든 삭제 작업을 병렬로 실행
+          await Promise.all(deletePromises);
+          console.log(`마커 ${markerId} 모든 문서에서 삭제 완료`);
+          
+        } catch (error) {
+          console.error("교사 권한 마커 삭제 중 오류:", error);
+          throw error;
+        }
+      } 
+      // 학생인 경우: 자신의 문서에서만 삭제
+      else {
+        const docRefToUpdate = userActivityDocRef;
+        
+        if (!docRefToUpdate) {
+          console.error("문서 참조를 가져올 수 없습니다.");
+          alert('문서 참조를 가져올 수 없습니다.');
+          return;
+        }
+        
+        console.log("학생이 자신의 마커 삭제:", { docRefPath: docRefToUpdate?.path });
+        
+        // 안전한 방법으로 마커 업데이트
+        const currentDoc = await getDoc(docRefToUpdate);
+        if (currentDoc.exists()) {
+          const docData = currentDoc.data();
+          const updatedMarkers = (docData.markers || []).filter(m => m.id !== markerId);
+          
+          await updateDoc(docRefToUpdate, {
+            markers: updatedMarkers,
+            lastUpdated: serverTimestamp()
+          });
+          
+          console.log(`Marker ${markerId} deleted from Firestore successfully`);
+        } else {
+          // 문서가 존재하지 않는 경우 초기화 시도
+          console.log("문서가 존재하지 않아 초기화를 시도합니다.");
+          const targetClassId = markerToDelete.classId || classId;
+          await setDoc(docRefToUpdate, {
+            markers: [],
+            shapes: [],
+            userId: markerToDelete.userId,
+            classId: targetClassId,
+            lessonId: String(lessonId),
+            createdAt: serverTimestamp(),
+            lastUpdated: serverTimestamp()
+          });
+          console.log("문서 초기화 완료 - 마커가 이미 삭제된 상태입니다.");
+        }
       }
+      
     } catch (error) {
       console.error("마커 삭제 중 오류:", error);
       alert(`마커 삭제 중 오류가 발생했습니다: ${error.message}`);
       
       // 실패 시 상태 복원
-      const previousMarkers = [...markers];
       setMarkers(previousMarkers);
     }
   };
