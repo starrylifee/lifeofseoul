@@ -3094,6 +3094,11 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
             {lessonData?.initialShapes?.map((shape) => {
               if (shape.type === 'polyline') {
                 // 폴리라인의 중간 지점 계산
+                // positions 배열이 존재하고 비어있지 않은지 확인
+                if (!shape.positions || shape.positions.length === 0) {
+                  return null; // 유효하지 않은 shape는 렌더링하지 않음
+                }
+                
                 const midIndex = Math.floor(shape.positions.length / 2);
                 const midPosition = shape.positions[midIndex];
                 
@@ -3150,6 +3155,11 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
                 );
               } else if (shape.type === 'polygon') {
                 // 폴리곤의 중심점 계산 (간단한 평균값 사용)
+                // positions 배열이 존재하고 비어있지 않은지 확인
+                if (!shape.positions || shape.positions.length === 0) {
+                  return null; // 유효하지 않은 shape는 렌더링하지 않음
+                }
+                
                 const centerLat = shape.positions.reduce((sum, pos) => sum + pos.lat, 0) / shape.positions.length;
                 const centerLng = shape.positions.reduce((sum, pos) => sum + pos.lng, 0) / shape.positions.length;
                 
