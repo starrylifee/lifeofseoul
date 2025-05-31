@@ -971,13 +971,27 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
     
     // 중복 마커 제거 유틸리티 함수
     const removeDuplicateMarkers = (markers) => {
-      const seen = new Set();
-      return markers.filter(marker => {
-        if (!marker.id) return true; // ID가 없는 경우 보존
-        if (seen.has(marker.id)) return false; // 이미 본 ID면 제외
-        seen.add(marker.id); // ID 추적
-        return true;
-      });
+      const seen = new Map();
+      const result = [];
+      
+      // 최신 마커를 우선으로 중복 제거
+      for (let i = markers.length - 1; i >= 0; i--) {
+        const marker = markers[i];
+        if (!marker.id) {
+          result.unshift(marker); // ID가 없는 경우 보존
+          continue;
+        }
+        
+        if (!seen.has(marker.id)) {
+          seen.set(marker.id, true);
+          result.unshift(marker);
+        } else {
+          console.log("중복 마커 제거:", marker.id);
+        }
+      }
+      
+      console.log(`마커 중복 제거: ${markers.length}개 → ${result.length}개`);
+      return result;
     };
     
     // 학생인 경우: 자신의 데이터와 반 전체 데이터 모두 로드 (수정된 부분)
@@ -1407,11 +1421,22 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
     try {
       // 로딩 상태 표시
       setIsUploading(true);
+      console.log("마커 저장 시작:", { selectedFiles: selectedFiles?.length || 0 });
 
       let imageUrls = [];
-      // 이미지 파일이 선택되었다면 업로드
+      
+      // 이미지 파일이 선택되었다면 업로드 시도
       if (selectedFiles && selectedFiles.length > 0) {
-        imageUrls = await uploadImagesToStorage(selectedFiles, selectedMarker.id);
+        try {
+          console.log("이미지 업로드 시작...");
+          imageUrls = await uploadImagesToStorage(selectedFiles, selectedMarker.id);
+          console.log("이미지 업로드 완료:", imageUrls);
+        } catch (uploadError) {
+          console.error("이미지 업로드 실패, 이미지 없이 저장 진행:", uploadError);
+          // 이미지 업로드 실패해도 텍스트는 저장하도록 처리
+          alert("이미지 업로드에 실패했지만 텍스트 내용은 저장됩니다.");
+          imageUrls = []; // 빈 배열로 설정
+        }
       }
 
       const updateData = {
@@ -1422,12 +1447,32 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
         images: [...(selectedMarker.images || []), ...imageUrls]
       };
       
+      console.log("마커 업데이트 데이터:", updateData);
       await handleSaveDescription(selectedMarker.id, updateData);
+      
+      // 성공 시 상태 초기화
+      setSelectedFiles([]);
+      
+      // 선택된 마커 업데이트 (로컬 상태는 handleSaveDescription에서 이미 업데이트됨)
+      const updatedMarker = {
+        ...selectedMarker,
+        ...updateData
+      };
+      setSelectedMarker(updatedMarker);
+      
+      console.log("마커 저장 완료!");
+      
+      // 모달을 view 모드로 변경
       setModalMode('view');
-      handleCloseModal();
+      
+      // 모달 닫기는 약간 지연시켜서 사용자가 완료를 인지할 수 있도록
+      setTimeout(() => {
+        handleCloseModal();
+      }, 500);
+      
     } catch (error) {
       console.error('마커 저장 오류:', error);
-      alert('마커 저장 중 오류가 발생했습니다.');
+      alert(`마커 저장 중 오류가 발생했습니다: ${error.message}`);
     } finally {
       setIsUploading(false);
     }
@@ -2617,31 +2662,78 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
 
   // 이미지 업로드 함수
   const uploadImagesToStorage = async (files, markerId) => {
-    if (!files || files.length === 0) return [];
+    console.log("uploadImagesToStorage 호출:", { filesCount: files?.length, markerId });
+    
+    if (!files || files.length === 0) {
+      console.log("업로드할 파일이 없습니다.");
+      return [];
+    }
+
+    // Firebase Storage 연결 상태 확인
+    if (!storage) {
+      throw new Error("Firebase Storage가 초기화되지 않았습니다.");
+    }
 
     try {
       const imageUrls = [];
       
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
+        console.log(`파일 ${i+1} 업로드 시작:`, { 
+          name: file.name, 
+          size: file.size, 
+          type: file.type 
+        });
+        
+        // 파일 크기 제한 (5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          throw new Error(`파일 크기가 너무 큽니다: ${file.name} (최대 5MB)`);
+        }
+        
         const fileExtension = file.name.split('.').pop();
         const fileName = `markers/${markerId}/${Date.now()}_${Math.random().toString(36).substring(2, 10)}.${fileExtension}`;
         const storageRef = ref(storage, fileName);
         
-        // 파일 업로드
-        await uploadBytes(storageRef, file);
+        console.log("Storage 참조 생성:", fileName);
+        
+        // 타임아웃 설정 (30초)
+        const uploadPromise = uploadBytes(storageRef, file);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("업로드 타임아웃 (30초)")), 30000)
+        );
+        
+        // 파일 업로드 (타임아웃 포함)
+        console.log("파일 업로드 시작...");
+        const uploadResult = await Promise.race([uploadPromise, timeoutPromise]);
+        console.log("파일 업로드 완료:", uploadResult);
         
         // 다운로드 URL 가져오기
+        console.log("다운로드 URL 가져오기 시작...");
         const downloadUrl = await getDownloadURL(storageRef);
         imageUrls.push(downloadUrl);
         
         console.log(`이미지 ${i+1}/${files.length} 업로드 완료:`, downloadUrl);
       }
       
+      console.log("모든 이미지 업로드 완료:", imageUrls);
       return imageUrls;
     } catch (error) {
-      console.error('이미지 업로드 오류:', error);
-      throw error;
+      console.error('이미지 업로드 상세 오류:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
+      
+      // 구체적인 에러 메시지 제공
+      if (error.code === 'storage/unauthorized') {
+        throw new Error("이미지 업로드 권한이 없습니다. 관리자에게 문의하세요.");
+      } else if (error.code === 'storage/quota-exceeded') {
+        throw new Error("저장 공간이 부족합니다.");
+      } else if (error.message.includes("타임아웃")) {
+        throw new Error("네트워크가 느려서 업로드에 실패했습니다. 다시 시도해주세요.");
+      } else {
+        throw new Error(`이미지 업로드 실패: ${error.message}`);
+      }
     }
   };
 
