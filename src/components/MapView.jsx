@@ -1185,12 +1185,22 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
   // --- Event Handlers with Firestore Integration ---
 
   const handleMapClick = async (latlng) => {
-
+    // 기초배움 단계(step 1)에서는 학생의 마커 추가를 무반응으로 처리
+    if (currentStep === 1 && isStudent()) {
+      // 아무 반응 없이 그냥 리턴 (알람도 없음)
+      return;
+    }
 
     // 가이드 활동 단계(step 2)에서만 마커 추가 허용
     if (currentStep !== 2) {
-      alert('마커 추가는 "가이드 활동" 단계에서만 가능합니다.');
-      return;
+      // 교사는 모든 단계에서 마커 추가 가능하도록 예외 처리
+      if (!isTeacher()) {
+        // 미션 단계(step 3)에서도 학생 마커 추가 허용
+        if (currentStep !== 3) {
+          alert('마커 추가는 "가이드 활동"과 "미션" 단계에서만 가능합니다.');
+          return;
+        }
+      }
     }
 
     // Firebase를 사용할 수 없는 경우 로컬에서만 마커 추가
@@ -2740,16 +2750,28 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       )}
       
       {/* 학습 활동 안내 (학생용) */}
+      {isStudent() && currentStep === 1 && (
+        <div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded">
+          📚 기초배움: 교사의 설명을 들으며 지도를 관찰해보세요. 이 단계에서는 마커 추가가 제한됩니다.
+        </div>
+      )}
+      
       {isStudent() && currentStep === 2 && (
         <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
           📝 가이드 활동: {LESSON_MARKER_PROMPTS[lessonId]?.replace(':', '') || '지도에서 원하는 지역을 클릭하여 미션을 수행해보세요!'}
         </div>
       )}
       
-      {/* 마커 추가 불가 안내 (가이드 활동 단계가 아닐 때) */}
-      {isStudent() && currentStep !== 2 && (
-        <div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded">
-          ℹ️ 마커 추가는 "가이드 활동" 단계에서만 가능합니다. 현재는 지도를 관찰하고 학습해보세요.
+      {isStudent() && currentStep === 3 && (
+        <div className="mb-4 p-3 bg-purple-100 border border-purple-400 text-purple-700 rounded">
+          🎯 미션: 구체적인 미션을 수행해보세요. 마커를 추가하고 수정할 수 있습니다.
+        </div>
+      )}
+      
+      {/* 마커 추가 불가 안내 (가이드 활동과 미션 단계가 아닐 때) */}
+      {isStudent() && currentStep !== 2 && currentStep !== 3 && currentStep !== 1 && (
+        <div className="mb-4 p-3 bg-gray-100 border border-gray-400 text-gray-700 rounded">
+          ℹ️ 현재 단계에서는 마커 추가가 제한됩니다. 교사의 안내에 따라 학습해보세요.
         </div>
       )}
       
@@ -2971,7 +2993,19 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
             })}
 
             {/* 사용자가 추가한 마커들 (학생 활동) */}
-            {[...new Map(markers.map(marker => [marker.id, marker])).values()].map((marker) => (
+            {[...new Map(markers.map(marker => [marker.id, marker])).values()]
+              .filter(marker => {
+                // 기초배움 단계(step 1)에서는 학생이 추가한 마커 숨김
+                if (currentStep === 1 && !marker.isInitial) {
+                  // 교사는 모든 마커를 볼 수 있음
+                  if (isTeacher()) return true;
+                  // 학생은 자신과 다른 학생의 마커 모두 숨김
+                  return false;
+                }
+                // 가이드 활동(step 2)과 미션(step 3) 단계에서는 모든 마커 표시
+                return true;
+              })
+              .map((marker) => (
               marker.position && marker.position.length === 2 && (
                 <Marker 
                   key={marker.id} 
