@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from 'firebase/storage';
 
@@ -21,5 +21,9 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
+const googleProvider = new GoogleAuthProvider();
 
-export { app, auth, db, storage }; 
+// Google 인증 설정 - 도메인 제한 제거 (코드에서 직접 검증)
+// hd 파라미터는 특정 도메인만 허용하므로 *.sen.es.kr 패턴을 지원하지 않음
+
+export { app, auth, db, storage, googleProvider }; 

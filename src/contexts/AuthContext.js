@@ -12,11 +12,12 @@ export function useAuth() {
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [userId, setUserId] = useState(null); // 사용자 ID 상태 추가
-  const [userRole, setUserRole] = useState(null); // 'teacher' or 'student'
+  const [userRole, setUserRole] = useState(null); // 'teacher', 'student', 'needs_setup'
   const [classId, setClassId] = useState(null);
   const [studentNumber, setStudentNumber] = useState(null);
   const [loading, setLoading] = useState(true); // Add loading state
   const [firebaseError, setFirebaseError] = useState(false); // Firebase 연결 오류 상태
+  const [showRoleSetup, setShowRoleSetup] = useState(false); // 역할 설정 모달 표시
   
   // 캐싱을 위한 상태 추가
   const [cachedStudents, setCachedStudents] = useState(new Map()); // classId -> students
@@ -39,9 +40,14 @@ export function AuthProvider({ children }) {
         if (userData.role === 'student') {
           setStudentNumber(userData.studentNumber);
         }
+        
+        // 역할 설정이 필요한 경우 모달 표시
+        if (userData.role === 'needs_setup') {
+          setShowRoleSetup(true);
+        }
 
       } else {
-
+        console.log("사용자 문서가 존재하지 않습니다.");
       }
     } catch (error) {
       console.error("Error fetching user data:", error);
@@ -196,12 +202,19 @@ export function AuthProvider({ children }) {
   // 같은 학급인지 확인하는 함수
   const isSameClass = (targetClassId) => classId === targetClassId;
 
+  // 역할 설정 완료 핸들러
+  const handleRoleSet = (role) => {
+    setUserRole(role);
+    setShowRoleSetup(false);
+  };
+
   const value = {
     currentUser,
     userId,
     userRole,
     classId,
     studentNumber,
+    showRoleSetup,
     isTeacher,
     isStudent,
     isSameClass,
@@ -209,6 +222,7 @@ export function AuthProvider({ children }) {
     fetchUserData,
     fetchClassStudents,
     fetchClassTeacher,
+    handleRoleSet,
     firebaseError
   };
 

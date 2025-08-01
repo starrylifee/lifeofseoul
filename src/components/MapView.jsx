@@ -1,15 +1,16 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, FeatureGroup, CircleMarker, Polygon, Polyline, Tooltip } from 'react-leaflet';
-import { EditControl } from 'react-leaflet-draw';
-import L from 'leaflet'; // Import Leaflet library for custom icons if needed later
-import 'leaflet-draw/dist/leaflet.draw.css'; // Import drawing tool CSS
-// import 'leaflet/dist/leaflet.css'; // CSS는 index.html에 전역으로 포함됨
-
-// Firebase Imports
-import { db, storage } from '../firebase'; // Firestore instance
-import { useAuth } from '../contexts/AuthContext'; // Auth context
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap, Circle, Polygon, Polyline, FeatureGroup, CircleMarker, Tooltip } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import 'leaflet-draw/dist/leaflet.draw.css';
+import { EditControl } from "react-leaflet-draw";
+import { auth, db, storage } from '../firebase';
 import { doc, setDoc, onSnapshot, updateDoc, arrayUnion, arrayRemove, serverTimestamp, collection, getDocs, query, where, getDoc, increment } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { uploadMultipleImages } from '../utils/markerUtils'; // Import custom uploadMultipleImages function
+
+// Firebase Imports
+import { useAuth } from '../contexts/AuthContext'; // Auth context
 
 // Fix for default icon issue with webpack
 delete L.Icon.Default.prototype._getIconUrl;
@@ -2813,67 +2814,22 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       throw new Error("Firebase Storage가 초기화되지 않았습니다.");
     }
 
-    // Firebase 설정 확인
-    console.log("Firebase Storage 설정 확인:", {
-      app: !!storage.app,
-      bucket: storage.app?.options?.storageBucket,
-      projectId: storage.app?.options?.projectId
-    });
-
     try {
-      const imageUrls = [];
+      // markerUtils의 uploadMultipleImages 함수 사용
+      const uploadPath = `markers/${markerId}`;
+      const uploadOptions = {
+        maxWidth: 800,
+        maxHeight: 600,
+        quality: 0.85,
+        shouldResize: true
+      };
       
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        console.log(`파일 ${i+1} 업로드 시작:`, { 
-          name: file.name, 
-          size: file.size, 
-          type: file.type 
-        });
-        
-        // 파일 크기 제한 (5MB)
-        if (file.size > 5 * 1024 * 1024) {
-          throw new Error(`파일 크기가 너무 큽니다: ${file.name} (최대 5MB)`);
-        }
-        
-        // 파일 타입 확인
-        if (!file.type.startsWith('image/')) {
-          throw new Error(`이미지 파일만 업로드 가능합니다: ${file.name}`);
-        }
-        
-        const fileExtension = file.name.split('.').pop();
-        const fileName = `markers/${markerId}/${Date.now()}_${Math.random().toString(36).substring(2, 10)}.${fileExtension}`;
-        
-        console.log("Storage 참조 생성:", fileName);
-        
-        try {
-          const storageRef = ref(storage, fileName);
-          console.log("Storage 참조 생성 완료:", storageRef);
-          
-          // 타임아웃 설정 (30초)
-          const uploadPromise = uploadBytes(storageRef, file);
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error("업로드 타임아웃 (30초)")), 30000)
-          );
-          
-          // 파일 업로드 (타임아웃 포함)
-          console.log("파일 업로드 시작...");
-          const uploadResult = await Promise.race([uploadPromise, timeoutPromise]);
-          console.log("파일 업로드 완료:", uploadResult);
-          
-          // 다운로드 URL 가져오기
-          console.log("다운로드 URL 가져오기 시작...");
-          const downloadUrl = await getDownloadURL(storageRef);
-          imageUrls.push(downloadUrl);
-          
-          console.log(`이미지 ${i+1}/${files.length} 업로드 완료:`, downloadUrl);
-        } catch (fileError) {
-          console.error(`파일 ${file.name} 업로드 실패:`, fileError);
-          throw fileError;
-        }
-      }
+      console.log("이미지 업로드 및 리사이징 시작...");
+      const uploadResults = await uploadMultipleImages(files, uploadPath, uploadOptions);
+      console.log("이미지 업로드 및 리사이징 완료:", uploadResults);
       
-      console.log("모든 이미지 업로드 완료:", imageUrls);
+      // URL만 추출하여 반환
+      const imageUrls = uploadResults.map(result => result.url);
       return imageUrls;
     } catch (error) {
       console.error('이미지 업로드 상세 오류:', {

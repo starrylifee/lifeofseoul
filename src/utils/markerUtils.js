@@ -12,6 +12,8 @@ import {
   increment 
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { storage } from '../firebase';
 
 /**
  * 마커 댓글 관련 함수들
@@ -107,44 +109,16 @@ export const toggleCommentLike = async (markerId, commentId, userId) => {
 /**
  * 이미지 업로드 관련 함수들 (Firebase Storage 사용)
  */
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { storage } from '../firebase';
-
-// 이미지 업로드
-export const uploadImage = async (file, path) => {
-  try {
-    const timestamp = Date.now();
-    const fileName = `${timestamp}_${file.name}`;
-    const imageRef = ref(storage, `${path}/${fileName}`);
-    
-    const snapshot = await uploadBytes(imageRef, file);
-    const downloadURL = await getDownloadURL(snapshot.ref);
-    
-    return {
-      url: downloadURL,
-      path: snapshot.ref.fullPath,
-      name: fileName
-    };
-  } catch (error) {
-    console.error('이미지 업로드 오류:', error);
-    throw error;
-  }
-};
-
-// 이미지 삭제
-export const deleteImage = async (imagePath) => {
-  try {
-    const imageRef = ref(storage, imagePath);
-    await deleteObject(imageRef);
-  } catch (error) {
-    console.error('이미지 삭제 오류:', error);
-    throw error;
-  }
-};
 
 // 이미지 리사이즈 (클라이언트 사이드)
 export const resizeImage = (file, maxWidth = 800, maxHeight = 600, quality = 0.8) => {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    // 파일 타입 확인
+    if (!file.type.startsWith('image/')) {
+      reject(new Error('이미지 파일만 리사이즈할 수 있습니다.'));
+      return;
+    }
+    
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const img = new Image();
@@ -172,11 +146,104 @@ export const resizeImage = (file, maxWidth = 800, maxHeight = 600, quality = 0.8
       ctx.drawImage(img, 0, 0, width, height);
       
       // Blob으로 변환
-      canvas.toBlob(resolve, 'image/jpeg', quality);
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          reject(new Error('이미지 리사이즈 실패'));
+          return;
+        }
+        
+        // 원본 파일과 동일한 이름과 타입을 가진 새 File 객체 생성
+        const resizedFile = new File([blob], file.name, {
+          type: file.type,
+          lastModified: Date.now()
+        });
+        
+        resolve(resizedFile);
+      }, file.type, quality);
+    };
+    
+    img.onerror = () => {
+      reject(new Error('이미지 로드 실패'));
     };
     
     img.src = URL.createObjectURL(file);
   });
+};
+
+// 이미지 업로드 (자동 리사이즈 포함)
+export const uploadImage = async (file, path, options = {}) => {
+  try {
+    // 기본 옵션 설정
+    const defaultOptions = {
+      maxWidth: 800,
+      maxHeight: 600,
+      quality: 0.8,
+      shouldResize: true
+    };
+    
+    const { maxWidth, maxHeight, quality, shouldResize } = { ...defaultOptions, ...options };
+    
+    // 파일 크기가 1MB 이상이거나 shouldResize가 true인 경우 리사이징
+    let fileToUpload = file;
+    if (shouldResize || file.size > 1024 * 1024) {
+      console.log('이미지 리사이징 시작:', { 
+        originalSize: `${(file.size / 1024).toFixed(2)}KB`,
+        dimensions: `${maxWidth}x${maxHeight}`
+      });
+      fileToUpload = await resizeImage(file, maxWidth, maxHeight, quality);
+      console.log('이미지 리사이징 완료:', { 
+        newSize: `${(fileToUpload.size / 1024).toFixed(2)}KB`,
+        compressionRatio: `${((1 - fileToUpload.size / file.size) * 100).toFixed(2)}%`
+      });
+    }
+    
+    const timestamp = Date.now();
+    const fileName = `${timestamp}_${file.name}`;
+    const imageRef = ref(storage, `${path}/${fileName}`);
+    
+    // 업로드 진행
+    const snapshot = await uploadBytes(imageRef, fileToUpload);
+    const downloadURL = await getDownloadURL(snapshot.ref);
+    
+    return {
+      url: downloadURL,
+      path: snapshot.ref.fullPath,
+      name: fileName,
+      size: fileToUpload.size,
+      originalSize: file.size,
+      width: maxWidth,
+      height: maxHeight
+    };
+  } catch (error) {
+    console.error('이미지 업로드 오류:', error);
+    throw error;
+  }
+};
+
+// 여러 이미지 업로드 (자동 리사이징 포함)
+export const uploadMultipleImages = async (files, path, options = {}) => {
+  try {
+    if (!files || files.length === 0) {
+      return [];
+    }
+    
+    const uploadPromises = Array.from(files).map(file => uploadImage(file, path, options));
+    return await Promise.all(uploadPromises);
+  } catch (error) {
+    console.error('다중 이미지 업로드 오류:', error);
+    throw error;
+  }
+};
+
+// 이미지 삭제
+export const deleteImage = async (imagePath) => {
+  try {
+    const imageRef = ref(storage, imagePath);
+    await deleteObject(imageRef);
+  } catch (error) {
+    console.error('이미지 삭제 오류:', error);
+    throw error;
+  }
 };
 
 /**
@@ -211,15 +278,18 @@ export const addImagesToMarker = async (lessonId, classId, userId, markerId, ima
   }
 };
 
-export default {
+const markerUtils = {
   addComment,
   updateComment,
   deleteComment,
   subscribeToComments,
   toggleCommentLike,
   uploadImage,
+  uploadMultipleImages,
   deleteImage,
   resizeImage,
   toggleMarkerLike,
   addImagesToMarker
-}; 
+};
+
+export default markerUtils; 

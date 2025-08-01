@@ -3,6 +3,9 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { useAuth } from './contexts/AuthContext';
 import Header from './components/Header';
 import Footer from './components/Footer';
+import RoleSelectionModal from './components/RoleSelectionModal';
+import StudentPendingScreen from './components/StudentPendingScreen';
+
 import Dashboard from './pages/Dashboard';
 import Classroom from './pages/Classroom';
 import LessonPage from './pages/LessonPage';
@@ -20,8 +23,13 @@ function ProtectedRoute({ children }) {
 }
 
 function App() {
-  const { currentUser } = useAuth();
+  const { currentUser, userRole, showRoleSetup, handleRoleSet } = useAuth();
   const isLoggedIn = !!currentUser;
+
+  // 학생이 승인 대기 중인 경우
+  if (isLoggedIn && userRole === 'student' && currentUser.status === 'pending') {
+    return <StudentPendingScreen />;
+  }
 
   return (
     <Router>
@@ -44,6 +52,14 @@ function App() {
           </Routes>
         </main>
         {isLoggedIn && <Footer />}
+        
+        {/* 역할 선택 모달 */}
+        {showRoleSetup && currentUser && (
+          <RoleSelectionModal 
+            email={currentUser.email} 
+            onRoleSet={handleRoleSet} 
+          />
+        )}
       </div>
     </Router>
   );
