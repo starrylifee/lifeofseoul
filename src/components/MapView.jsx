@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap, Circle, Polygon, Polyline, FeatureGroup, CircleMarker, Tooltip } from 'react-leaflet';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, Polygon, Polyline, FeatureGroup, CircleMarker, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
 import { EditControl } from "react-leaflet-draw";
-import { auth, db, storage } from '../firebase';
+import { db, storage } from '../firebase';
 import { doc, setDoc, onSnapshot, updateDoc, arrayUnion, arrayRemove, serverTimestamp, collection, getDocs, query, where, getDoc, increment } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { uploadMultipleImages } from '../utils/markerUtils'; // Import custom uploadMultipleImages function
+import { ref } from 'firebase/storage';
+import { uploadMultipleImages } from '../utils/imageUpload'; // Import custom uploadMultipleImages function
 
 // Firebase Imports
 import { useAuth } from '../contexts/AuthContext'; // Auth context
@@ -668,7 +668,7 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
   const [lessonData, setLessonData] = useState(null);
   const [markers, setMarkers] = useState([]);
   const [shapes, setShapes] = useState([]);
-  const [editingMarkerId, setEditingMarkerId] = useState(null);
+  const [, setEditingMarkerId] = useState(null);
   const [currentDescription, setCurrentDescription] = useState('');
   const [userColors, setUserColors] = useState({});
   const [allClasses, setAllClasses] = useState([]);
@@ -689,7 +689,7 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
   const [editContent, setEditContent] = useState('');
   // 이미지 업로드 관련 상태 추가
   const [selectedFiles, setSelectedFiles] = useState([]);
-  const [selectedImages, setSelectedImages] = useState([]);
+  const [, setSelectedImages] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
   
   // 새로운 마커 생성 상태 추가
@@ -704,6 +704,7 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
   const authContext = useAuth();
   const currentUser = authContext?.currentUser || null;
   const classId = authContext?.classId || null;
+  const teacherId = authContext?.teacherId || null;
   
   // Firebase 연결 상태 확인
   useEffect(() => {
@@ -758,9 +759,9 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
     }
   }, [currentUser, authContext]);
   
-  // 편의 함수
-  const isTeacher = () => userRole === 'teacher';
-  const isStudent = () => userRole === 'student';
+  // 편의 함수 (안정화)
+  const isTeacher = useCallback(() => userRole === 'teacher', [userRole]);
+  const isStudent = useCallback(() => userRole === 'student', [userRole]);
 
   // 사용자 색상 정보 로드
   useEffect(() => {
@@ -852,10 +853,10 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
 
   // Ref to the user's activity document in Firestore - 반별 구조로 변경
   const getUserActivityDocRef = useCallback((uid, targetClassId = null) => {
-    const userClassId = targetClassId || classId;
-    return (uid && userClassId && isFirebaseAvailable) ? 
-      doc(db, "lessons", String(lessonId), "classActivities", userClassId, "students", uid) : null;
-  }, [lessonId, classId, isFirebaseAvailable]);
+    const effectiveClassId = targetClassId || classId || teacherId;
+    return (uid && effectiveClassId && isFirebaseAvailable) ? 
+      doc(db, "lessons", String(lessonId), "classActivities", effectiveClassId, "students", uid) : null;
+  }, [lessonId, classId, teacherId, isFirebaseAvailable]);
 
   const userActivityDocRef = getUserActivityDocRef(currentUser?.uid);
 
@@ -863,31 +864,27 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
   useEffect(() => {
     const initializeStudentDocument = async () => {
       if (!isFirebaseAvailable || !currentUser || !userActivityDocRef || !isStudent()) return;
-      
       try {
-        // 문서 존재 여부 확인
         const docSnap = await getDoc(userActivityDocRef);
-        
-        // 문서가 없으면 초기화
         if (!docSnap.exists()) {
+          const effectiveClassId = classId || teacherId;
           await setDoc(userActivityDocRef, { 
             markers: [], 
             shapes: [], 
             userId: currentUser.uid,
-            classId: classId,
+            classId: effectiveClassId,
             lessonId: String(lessonId), 
             createdAt: serverTimestamp(), 
             lastUpdated: serverTimestamp() 
           });
-          console.log("학생 활동 문서 초기화 완료:", lessonId, classId, currentUser.uid);
+          console.log("학생 활동 문서 초기화 완료:", lessonId, effectiveClassId, currentUser.uid);
         }
       } catch (error) {
         console.error("학생 문서 초기화 오류:", error);
       }
     };
-    
     initializeStudentDocument();
-  }, [currentUser, userActivityDocRef, isFirebaseAvailable, isStudent, lessonId, classId]);
+  }, [currentUser, userActivityDocRef, isFirebaseAvailable, isStudent, lessonId, classId, teacherId]);
 
   // === 이벤트 기반 업데이트 시스템 ===
   
@@ -999,66 +996,52 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       setShapes([]);
       return;
     }
-    
+
     // 중복 마커 제거 유틸리티 함수
     const removeDuplicateMarkers = (markers) => {
       const seen = new Map();
       const result = [];
-      
-      // 최신 마커를 우선으로 중복 제거
       for (let i = markers.length - 1; i >= 0; i--) {
         const marker = markers[i];
-        if (!marker.id) {
-          result.unshift(marker); // ID가 없는 경우 보존
-          continue;
-        }
-        
-        if (!seen.has(marker.id)) {
-          seen.set(marker.id, true);
-          result.unshift(marker);
-        }
+        if (!marker.id) { result.unshift(marker); continue; }
+        if (!seen.has(marker.id)) { seen.set(marker.id, true); result.unshift(marker); }
       }
-      
       return result;
     };
-    
+
     // 학생인 경우: 자신의 데이터(실시간) + 반 전체 데이터(이벤트 기반)
     if (isStudent()) {
-      // 학생 자신의 데이터 실시간 리스너
+      // 필수 ref 확인
+      if (!userActivityDocRef || !classId) {
+        setMarkers([]);
+        setShapes([]);
+        return;
+      }
+
       const unsubscribe = onSnapshot(userActivityDocRef, (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
           const myMarkers = (data.markers || []).map(marker => ({
             ...marker,
-            isOwnMarker: true, // 자신의 마커 표시
+            isOwnMarker: true,
             color: marker.color || getUserColor(currentUser.uid) || DEFAULT_COLOR
           }));
-          
-          // 반 전체 데이터 로딩 함수
+
           const loadClassData = async () => {
             try {
               const classActivitiesRef = collection(db, "lessons", String(lessonId), "classActivities", classId, "students");
               const querySnapshot = await getDocs(classActivitiesRef);
-              
               let allClassMarkers = [];
-              // 중복 ID 추적을 위한 Set
               const markerIds = new Set(myMarkers.map(m => m.id));
-              
               querySnapshot.forEach((doc) => {
-                // 자신의 데이터는 제외
                 if (doc.id === currentUser.uid) return;
-                
                 const data = doc.data();
                 if (data.markers) {
-                  // 중복되지 않은 마커만 추가
                   const uniqueMarkers = data.markers.filter(marker => !markerIds.has(marker.id));
-                  
-                  // 사용된 ID 추적
                   uniqueMarkers.forEach(marker => markerIds.add(marker.id));
-                  
                   const classMarkersWithUser = uniqueMarkers.map(marker => ({
                     ...marker,
-                    isOwnMarker: false, // 다른 학생의 마커
+                    isOwnMarker: false,
                     color: marker.color || getUserColor(doc.id) || DEFAULT_COLOR,
                     comments: marker.comments || [],
                     commentCount: marker.commentCount || (marker.comments ? marker.comments.length : 0),
@@ -1068,41 +1051,38 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
                   allClassMarkers = [...allClassMarkers, ...classMarkersWithUser];
                 }
               });
-              
-              // 자신의 마커와 반 전체 마커 결합
               const combinedMarkers = [...myMarkers, ...allClassMarkers];
               const uniqueMarkers = removeDuplicateMarkers(combinedMarkers);
               setMarkers(uniqueMarkers);
               setShapes(data.shapes || []);
             } catch (error) {
               console.error("반 전체 데이터 로드 오류:", error);
-              // 실패 시 자신의 마커만 표시
               setMarkers(removeDuplicateMarkers(myMarkers));
               setShapes(data.shapes || []);
             }
           };
-          
+
           // 초기 로드
           loadClassData();
-          
-          // 이벤트 기반 업데이트 리스너
-          const eventDocRef = doc(db, "lessons", String(lessonId), "classEvents", classId);
-          const eventUnsubscribe = onSnapshot(eventDocRef, (eventDoc) => {
-            if (eventDoc.exists()) {
-              const eventData = eventDoc.data();
-              // 다른 학생이 업데이트했을 때만 다시 로딩
-              if (eventData?.lastUpdatedBy !== currentUser.uid) {
-                console.log(`이벤트 감지: ${eventData.eventType} by ${eventData.lastUpdatedBy}`);
-                loadClassData();
+
+          // 이벤트 기반 업데이트 리스너 (classId 확인)
+          let eventUnsubscribe = null;
+          if (classId) {
+            const eventDocRef = doc(db, "lessons", String(lessonId), "classEvents", classId);
+            eventUnsubscribe = onSnapshot(eventDocRef, (eventDoc) => {
+              if (eventDoc.exists()) {
+                const eventData = eventDoc.data();
+                if (eventData?.lastUpdatedBy !== currentUser.uid) {
+                  console.log(`이벤트 감지: ${eventData.eventType} by ${eventData.lastUpdatedBy}`);
+                  loadClassData();
+                }
               }
-            }
-          }, (error) => {
-            console.error("이벤트 리스너 오류:", error);
-          });
-          
-          return () => { 
-            eventUnsubscribe();
-          };
+            }, (error) => {
+              console.error("이벤트 리스너 오류:", error);
+            });
+          }
+
+          return () => { if (eventUnsubscribe) eventUnsubscribe(); };
         } else {
           setMarkers([]);
           setShapes([]);
@@ -1110,11 +1090,9 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       }, (error) => {
         console.error("Error listening to Firestore:", error);
       });
-      
+
       return () => { unsubscribe(); };
-    } 
-    // 교사인 경우: 선택된 반의 데이터 로드 (이벤트 기반)
-    else if (isTeacher()) {
+    } else if (isTeacher()) {
       let targetClassId;
       if (selectedClass === 'all') {
         if (allClasses.length > 0) {
@@ -1216,7 +1194,7 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
         return () => { eventUnsubscribe(); };
       }
     }
-  }, [currentUser, lessonId, isStudent, isTeacher, userActivityDocRef, selectedStudent, selectedClass, getUserColor, isFirebaseAvailable]);
+  }, [currentUser, lessonId, isStudent, isTeacher, userActivityDocRef, selectedStudent, selectedClass, getUserColor, isFirebaseAvailable, classId, teacherId]);
 
   // --- Event Handlers with Firestore Integration ---
 
@@ -1250,7 +1228,7 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
           content: '',
           images: [],
           userId: 'offline-user',
-          classId: classId || 'offline-class',
+          classId: (classId || teacherId || 'offline-class'),
           color: DEFAULT_COLOR,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -1281,11 +1259,12 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       try {
         const docSnap = await getDoc(userActivityDocRef);
         if (!docSnap.exists()) {
+          const effectiveClassId = classId || teacherId;
           await setDoc(userActivityDocRef, { 
             markers: [], 
             shapes: [], 
             userId: currentUser.uid,
-            classId: classId,
+            classId: effectiveClassId,
             lessonId: String(lessonId), 
             createdAt: serverTimestamp(), 
             lastUpdated: serverTimestamp() 

@@ -11,8 +11,8 @@ import { doc, setDoc, getDoc } from "firebase/firestore";
 import { useAuth } from '../contexts/AuthContext';
 
 function LoginPage() {
-  const [userId, setUserId] = useState('');
-  const [password, setPassword] = useState('');
+  const [userId] = useState('');
+  const [password] = useState('');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);

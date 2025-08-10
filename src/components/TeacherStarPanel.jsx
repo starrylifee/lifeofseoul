@@ -55,7 +55,7 @@ const TeacherStarPanel = ({ lessonId }) => {
     };
 
     fetchStudents();
-  }, [classId, currentUser?.uid]); // currentUser 전체 대신 uid만 감시
+  }, [classId, currentUser?.uid, studentsLoading]); // currentUser 전체 대신 uid만 감시
 
   // 학급 별 순위 로드
   const fetchClassRanking = async () => {

@@ -7,8 +7,7 @@ import {
   setDoc, 
   updateDoc, 
   query, 
-  where, 
-  orderBy 
+  where 
 } from 'firebase/firestore';
 
 // 학생 활동 데이터 가져오기

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase';
 import { collection, query, where, getDocs, doc, getDoc, orderBy } from 'firebase/firestore';
@@ -20,7 +20,7 @@ const Progress = () => {
   const [loading, setLoading] = useState(true);
 
   // 레슨 목록
-  const lessonList = [
+  const lessonList = useMemo(() => ([
     { id: '1', title: '1차시: 서울의 모습과 특성', icon: '🏙️' },
     { id: '2', title: '2차시: 한강과 서울의 하천', icon: '🌊' },
     { id: '3', title: '3차시: 서울의 도로와 지하철', icon: '🚇' },
@@ -29,7 +29,7 @@ const Progress = () => {
     { id: '6', title: '6차시: 문화의 중심지', icon: '🎭' },
     { id: '7', title: '7차시: 서울의 궁궐', icon: '🏯' },
     { id: '8', title: '8차시: 한양도성의 성곽과 대문', icon: '🏰' },
-  ];
+  ]), []);
 
   useEffect(() => {
     if (!isStudent() || !currentUser) {
@@ -38,9 +38,9 @@ const Progress = () => {
     }
 
     fetchPersonalProgress();
-  }, [currentUser, classId]);
+  }, [currentUser, classId, isStudent, fetchPersonalProgress]);
 
-  const fetchPersonalProgress = async () => {
+  const fetchPersonalProgress = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -159,7 +159,7 @@ const Progress = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [lessonList, currentUser, classId]);
 
   // 상태별 스타일 및 텍스트 반환
   const getStatusInfo = (status, completionRate) => {

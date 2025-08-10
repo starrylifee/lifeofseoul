@@ -18,18 +18,16 @@ function RoleSelectionModal({ email, onRoleSet }) {
         updatedAt: new Date()
       };
 
-      // 학생인 경우 승인 대기 상태로 설정
+      // 학생인 경우 승인 대기 상태로 설정 (teacherId는 null 유지 → 초대코드 강제 조건 충족)
       if (selectedRole === 'student') {
-        updateData.status = 'pending'; // 승인 대기
+        updateData.status = 'pending';
         updateData.approvedBy = null;
         updateData.teacherId = null;
       } else {
-        updateData.status = 'approved'; // 교사는 자동 승인
+        updateData.status = 'approved';
       }
 
-      // 역할 업데이트
       await updateDoc(doc(db, "users", currentUser.uid), updateData);
-      
       onRoleSet(selectedRole);
     } catch (error) {
       console.error('역할 설정 오류:', error);

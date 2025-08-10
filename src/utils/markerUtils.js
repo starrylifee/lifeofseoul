@@ -8,8 +8,7 @@ import {
   query, 
   orderBy, 
   onSnapshot,
-  serverTimestamp,
-  increment 
+  serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
@@ -93,8 +92,6 @@ export const subscribeToComments = (markerId, callback) => {
 // 댓글 좋아요 토글
 export const toggleCommentLike = async (markerId, commentId, userId) => {
   try {
-    const commentRef = doc(db, 'comments', markerId, 'entries', commentId);
-    
     // TODO: 좋아요 토글 로직 구현
     // 1. 현재 좋아요 상태 확인
     // 2. 좋아요 추가/제거

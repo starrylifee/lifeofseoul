@@ -11,7 +11,7 @@ function LessonView({ lessonConfig, lessonId, activityData }) {
   // lessonConfig: 레슨의 목표, 단계별 설명 등 (lessons/lessonX/config.js 에서 로드)
   // lessonData: 레슨의 초기 데이터, 사용자 활동 데이터 등 (lessons/lessonX/data.json 또는 Firebase 에서 로드)
 
-  const { currentUser } = useAuth();
+  const {} = useAuth();
   const [currentStep, setCurrentStep] = useState(LESSON_STEPS.INTRO);
 
   // 현재 단계를 ActivityTemplate에서 받아오기 위한 콜백

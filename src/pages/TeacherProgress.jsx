@@ -1,12 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
-import { getClassStarRanking } from '../utils/starAPI';
+import { collection, query, where, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
+import { getStudentStars } from '../utils/starAPI';
 import StarLevelDisplay from '../components/StarLevelDisplay';
+import ClassPetCard from '../components/ClassPetCard';
+
+const levelThreshold = (level) => 20 + (level - 1) * 10; // 간단 규칙: 20,30,40...
 
 const TeacherProgress = () => {
-  const { currentUser, classId, isTeacher } = useAuth();
+  const { currentUser, isTeacher } = useAuth();
   const [students, setStudents] = useState([]);
   const [classStats, setClassStats] = useState({
     totalStudents: 0,
@@ -17,9 +20,9 @@ const TeacherProgress = () => {
   const [lessonProgress, setLessonProgress] = useState([]);
   const [starRanking, setStarRanking] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [classDoc, setClassDoc] = useState(null);
 
-  // 레슨 목록
-  const lessonList = [
+  const lessonList = useMemo(() => ([
     { id: '1', title: '1차시: 서울의 모습과 특성', icon: '🏙️' },
     { id: '2', title: '2차시: 한강과 서울의 하천', icon: '🌊' },
     { id: '3', title: '3차시: 서울의 도로와 지하철', icon: '🚇' },
@@ -28,73 +31,53 @@ const TeacherProgress = () => {
     { id: '6', title: '6차시: 문화의 중심지', icon: '🎭' },
     { id: '7', title: '7차시: 서울의 궁궐', icon: '🏯' },
     { id: '8', title: '8차시: 한양도성의 성곽과 대문', icon: '🏰' },
-  ];
+  ]), []);
 
-  useEffect(() => {
-    if (!isTeacher() || !classId) {
-      setLoading(false);
-      return;
-    }
-
-    fetchClassProgress();
-  }, [currentUser, classId]);
-
-  const fetchClassProgress = async () => {
+  const fetchClassProgress = useCallback(async () => {
     try {
       setLoading(true);
-      
-      // 학급 학생 목록 가져오기
       const studentsQuery = query(
-        collection(db, "users"),
-        where("classId", "==", classId),
-        where("role", "==", "student")
+        collection(db, 'users'),
+        where('role', '==', 'student'),
+        where('teacherId', '==', currentUser.uid)
       );
-      
       const studentsSnapshot = await getDocs(studentsQuery);
-      const studentList = studentsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-
+      const studentList = studentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      studentList.sort((a,b) => {
+        const na = a.studentNumber || 0;
+        const nb = b.studentNumber || 0;
+        if (na !== nb) return na - nb;
+        const ea = (a.email || '').toLowerCase();
+        const eb = (b.email || '').toLowerCase();
+        return ea.localeCompare(eb);
+      });
       setStudents(studentList);
 
-      // 각 학생의 레슨 진행률 계산
+      // 레슨 진행률
       const progressData = [];
       let totalCompletedLessons = 0;
       let totalMarkers = 0;
 
       for (const lesson of lessonList) {
-        const lessonProgress = {
-          ...lesson,
-          completedStudents: 0,
-          totalMarkers: 0,
-          studentProgress: []
-        };
-
+        const lessonProg = { ...lesson, completedStudents: 0, totalMarkers: 0, studentProgress: [] };
         for (const student of studentList) {
           try {
-            // 학생의 레슨 활동 데이터 가져오기
-            const activityDoc = await getDoc(doc(db, "lessons", lesson.id, "activities", student.id));
-            
+            const activityDoc = await getDoc(doc(db, 'lessons', lesson.id, 'activities', student.id));
             let isCompleted = false;
             let markerCount = 0;
-            
             if (activityDoc.exists()) {
               const data = activityDoc.data();
               const questionsCompleted = data.questionsCompleted || 0;
               markerCount = (data.markers || []).length;
-              isCompleted = questionsCompleted >= 8; // 8문제 모두 완료
-              
+              isCompleted = questionsCompleted >= 8;
               if (isCompleted) {
-                lessonProgress.completedStudents++;
+                lessonProg.completedStudents++;
                 totalCompletedLessons++;
               }
-              
               totalMarkers += markerCount;
-              lessonProgress.totalMarkers += markerCount;
+              lessonProg.totalMarkers += markerCount;
             }
-
-            lessonProgress.studentProgress.push({
+            lessonProg.studentProgress.push({
               studentId: student.id,
               studentName: student.email?.split('@')[0] || student.name || 'Unknown',
               studentNumber: student.studentNumber || '',
@@ -102,36 +85,68 @@ const TeacherProgress = () => {
               markerCount,
               questionsCompleted: activityDoc.exists() ? (activityDoc.data().questionsCompleted || 0) : 0
             });
-          } catch (error) {
-            console.error(`Error fetching data for student ${student.id}, lesson ${lesson.id}:`, error);
-          }
+          } catch {}
         }
-
-        progressData.push(lessonProgress);
+        progressData.push(lessonProg);
       }
-
       setLessonProgress(progressData);
 
-      // 별 랭킹 가져오기
-      const ranking = await getClassStarRanking(classId);
-      setStarRanking(ranking);
+      // 별 합/랭킹
+      const rankings = await Promise.all(
+        studentList.map(async (s) => ({ userId: s.id, email: s.email, studentNumber: s.studentNumber, stars: await getStudentStars(s.id) }))
+      );
+      rankings.sort((a, b) => b.stars - a.stars);
+      setStarRanking(rankings);
+      const totalStars = rankings.reduce((sum, s) => sum + s.stars, 0);
 
-      // 전체 통계 계산
-      const totalStars = ranking.reduce((sum, student) => sum + student.stars, 0);
-      
-      setClassStats({
-        totalStudents: studentList.length,
-        totalStars,
-        completedLessons: totalCompletedLessons,
-        totalMarkers
+      setClassStats({ totalStudents: studentList.length, totalStars, completedLessons: totalCompletedLessons, totalMarkers });
+
+      // classes/{teacherId} 문서 로드 (없으면 가상)
+      const classRef = doc(db, 'classes', currentUser.uid);
+      const classSnap = await getDoc(classRef);
+      let cdoc = classSnap.exists() ? classSnap.data() : null;
+
+      // 파생 계산: xp=totalStars, level/nextLevelXp, unlockedLessons
+      const derivedLevel = (() => {
+        let lvl = 1, xpNeed = levelThreshold(1), xpLeft = totalStars;
+        while (xpLeft >= xpNeed && lvl < 4) { xpLeft -= xpNeed; lvl += 1; xpNeed = levelThreshold(lvl); }
+        return lvl;
+      })();
+      const nextXp = levelThreshold(derivedLevel);
+
+      const unlockedLessons = lessonList.map((lsn) => {
+        const lp = progressData.find(p => p.id === lsn.id);
+        const rate = (lp && studentList.length) ? (lp.completedStudents / studentList.length) : 0;
+        return rate >= 0.6; // 60% 이상 해금
       });
+
+      setClassDoc({
+        xp: totalStars,
+        level: derivedLevel,
+        nextLevelXp: nextXp,
+        unlockedLessons
+      });
+
+      // classes 문서를 실제 저장하려면 주석 해제 (선택)
+      // await setDoc(classRef, { xp: totalStars, level: derivedLevel, nextLevelXp: nextXp, unlockedLessons, updatedAt: new Date() }, { merge: true });
 
     } catch (error) {
       console.error('Error fetching class progress:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser?.uid, lessonList]);
+
+  useEffect(() => {
+    if (!isTeacher() || !currentUser?.uid) { setLoading(false); return; }
+    fetchClassProgress();
+  }, [isTeacher, currentUser?.uid, fetchClassProgress]);
+
+  const starMap = useMemo(() => {
+    const m = new Map();
+    for (const s of starRanking) m.set(s.userId, s.stars);
+    return m;
+  }, [starRanking]);
 
   if (!isTeacher()) {
     return (
@@ -158,17 +173,16 @@ const TeacherProgress = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-friendly-mint via-white to-friendly-pink">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
-        {/* 헤더 */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4 font-korean">
-            📊 학급 진행 현황
-          </h1>
-          <p className="text-lg text-gray-600 font-korean">
-            {classId} 학급의 학습 진행 상황을 확인하세요
-          </p>
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4 font-korean">📊 학급 진행 현황</h1>
+          <p className="text-lg text-gray-600 font-korean">내 학급의 학습 진행 상황을 확인하세요</p>
         </div>
 
-        {/* 전체 통계 카드 */}
+        {classDoc && (
+          <ClassPetCard xp={classDoc.xp} level={classDoc.level} nextLevelXp={classDoc.nextLevelXp} unlockedLessons={classDoc.unlockedLessons} />
+        )}
+
+        {/* 기존 카드들 유지 */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-3xl p-6 shadow-soft">
             <div className="text-center">
@@ -177,7 +191,6 @@ const TeacherProgress = () => {
               <p className="text-2xl font-bold text-seoul-600">{classStats.totalStudents}명</p>
             </div>
           </div>
-          
           <div className="bg-white rounded-3xl p-6 shadow-soft">
             <div className="text-center">
               <div className="text-3xl mb-2">⭐</div>
@@ -185,7 +198,6 @@ const TeacherProgress = () => {
               <p className="text-2xl font-bold text-yellow-600">{classStats.totalStars}개</p>
             </div>
           </div>
-          
           <div className="bg-white rounded-3xl p-6 shadow-soft">
             <div className="text-center">
               <div className="text-3xl mb-2">✅</div>
@@ -193,7 +205,6 @@ const TeacherProgress = () => {
               <p className="text-2xl font-bold text-green-600">{classStats.completedLessons}개</p>
             </div>
           </div>
-          
           <div className="bg-white rounded-3xl p-6 shadow-soft">
             <div className="text-center">
               <div className="text-3xl mb-2">📍</div>
@@ -203,15 +214,41 @@ const TeacherProgress = () => {
           </div>
         </div>
 
-        {/* 레슨별 진행률 */}
+        <div className="bg-white rounded-3xl p-6 shadow-soft mb-8">
+          <h2 className="text-2xl font-bold text-gray-800 mb-6 font-korean">👨‍👩‍👧‍👦 학급 학생 목록</h2>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">번호</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">이메일</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">별</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {students.length ? students.map(s => (
+                  <tr key={s.id}>
+                    <td className="px-6 py-4 whitespace-nowrap">{s.studentNumber || '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">{s.email || '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">{s.status || 'approved'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">{(starRanking.find(r => r.userId === s.id)?.stars) || 0}</td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td className="px-6 py-4" colSpan={4}>학생 데이터가 없습니다.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <div className="bg-white rounded-3xl p-6 shadow-soft mb-8">
           <h2 className="text-2xl font-bold text-gray-800 mb-6 font-korean">📚 레슨별 진행률</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {lessonProgress.map((lesson) => {
-              const completionRate = students.length > 0 
-                ? Math.round((lesson.completedStudents / students.length) * 100) 
-                : 0;
-              
+              const completionRate = students.length > 0 ? Math.round((lesson.completedStudents / students.length) * 100) : 0;
               return (
                 <div key={lesson.id} className="border-2 border-gray-100 rounded-xl p-4">
                   <div className="flex items-center justify-between mb-3">
@@ -228,10 +265,7 @@ const TeacherProgress = () => {
                     </div>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-3">
-                    <div 
-                      className="bg-gradient-to-r from-seoul-400 to-seoul-600 h-3 rounded-full transition-all duration-500"
-                      style={{ width: `${completionRate}%` }}
-                    ></div>
+                    <div className="bg-gradient-to-r from-seoul-400 to-seoul-600 h-3 rounded-full transition-all duration-500" style={{ width: `${completionRate}%` }} />
                   </div>
                 </div>
               );
@@ -239,33 +273,23 @@ const TeacherProgress = () => {
           </div>
         </div>
 
-        {/* 학급 별 랭킹 */}
         <div className="bg-white rounded-3xl p-6 shadow-soft">
           <h2 className="text-2xl font-bold text-gray-800 mb-6 font-korean">🏆 학급 별 랭킹</h2>
           <div className="space-y-4">
             {starRanking.slice(0, 10).map((student, index) => (
               <div key={student.userId} className="flex items-center space-x-4 p-4 bg-gray-50 rounded-xl">
-                <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full text-white font-bold">
-                  {index + 1}
-                </div>
+                <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full text-white font-bold">{index + 1}</div>
                 <div className="flex-1">
-                  <div className="font-medium text-gray-800 font-korean">
-                    {student.studentNumber ? `${student.studentNumber}번 - ` : ''}{student.email.split('@')[0]}
-                  </div>
+                  <div className="font-medium text-gray-800 font-korean">{student.studentNumber ? `${student.studentNumber}번 - ` : ''}{student.email.split('@')[0]}</div>
                   <StarLevelDisplay userId={student.userId} compact={true} />
                 </div>
                 <div className="text-right">
-                  <div className="text-lg font-bold text-yellow-600">
-                    ⭐ {student.stars}개
-                  </div>
+                  <div className="text-lg font-bold text-yellow-600">⭐ {student.stars}개</div>
                 </div>
               </div>
             ))}
-            
             {starRanking.length === 0 && (
-              <div className="text-center py-8 text-gray-500 font-korean">
-                아직 별을 획득한 학생이 없습니다.
-              </div>
+              <div className="text-center py-8 text-gray-500 font-korean">아직 별을 획득한 학생이 없습니다.</div>
             )}
           </div>
         </div>

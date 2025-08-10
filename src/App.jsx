@@ -5,6 +5,7 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import RoleSelectionModal from './components/RoleSelectionModal';
 import StudentPendingScreen from './components/StudentPendingScreen';
+import InviteCodeModal from './components/InviteCodeModal';
 
 import Dashboard from './pages/Dashboard';
 import Classroom from './pages/Classroom';
@@ -23,7 +24,7 @@ function ProtectedRoute({ children }) {
 }
 
 function App() {
-  const { currentUser, userRole, showRoleSetup, handleRoleSet } = useAuth();
+  const { currentUser, userRole, showRoleSetup, handleRoleSet, requireInviteCode } = useAuth();
   const isLoggedIn = !!currentUser;
 
   // 학생이 승인 대기 중인 경우
@@ -59,6 +60,11 @@ function App() {
             email={currentUser.email} 
             onRoleSet={handleRoleSet} 
           />
+        )}
+
+        {/* 학생 초대코드 강제 모달 (역할 선택 모달보다 다음 우선순위) */}
+        {!showRoleSetup && requireInviteCode && (
+          <InviteCodeModal />
         )}
       </div>
     </Router>

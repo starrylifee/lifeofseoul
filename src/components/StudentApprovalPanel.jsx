@@ -119,7 +119,7 @@ function StudentApprovalPanel() {
     };
     
     loadData();
-  }, [currentUser]);
+  }, [currentUser, fetchApprovedStudents]);
 
   if (loading) {
     return (

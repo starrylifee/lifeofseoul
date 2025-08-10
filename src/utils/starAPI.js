@@ -4,15 +4,13 @@ import {
   doc, 
   getDoc, 
   setDoc, 
-  updateDoc, 
   query, 
   where, 
   getDocs,
   orderBy,
-  limit,
   addDoc
 } from 'firebase/firestore';
-import { STAR_SOURCES, createStarRecord } from './starSystem';
+import { createStarRecord } from './starSystem';
 
 // 학생의 총 별 개수 가져오기
 export const getStudentStars = async (userId) => {

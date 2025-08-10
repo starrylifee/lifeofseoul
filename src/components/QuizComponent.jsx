@@ -8,7 +8,7 @@ function QuizComponent({ lessonConfig, lessonId }) {
   const { currentUser } = useAuth();
   const [answers, setAnswers] = useState({});
   const [showResults, setShowResults] = useState(false);
-  const [savedAnswers, setSavedAnswers] = useState({});
+  const [, setSavedAnswers] = useState({});
   const [questionsCompleted, setQuestionsCompleted] = useState(0);
   const [loading, setLoading] = useState(false);
   const [starAttempts, setStarAttempts] = useState(0);

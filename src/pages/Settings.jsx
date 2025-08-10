@@ -1,11 +1,60 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { auth, db, googleProvider } from '../firebase';
+import { deleteUser, reauthenticateWithPopup } from 'firebase/auth';
+import { doc, deleteDoc, updateDoc, collection, query, where, getDocs, setDoc, serverTimestamp } from 'firebase/firestore';
 
 const Settings = () => {
-  const { currentUser, userId, userRole, classId, studentNumber, isTeacher, isStudent, logout } = useAuth();
+  const { currentUser, userId, classId, studentNumber, isTeacher, isStudent, logout } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [inviteCodes, setInviteCodes] = useState([]);
   const navigate = useNavigate();
+
+  const loadMyInviteCodes = async () => {
+    if (!isTeacher()) return;
+    try {
+      const q = query(collection(db, 'inviteCodes'), where('teacherId', '==', currentUser.uid));
+      const snap = await getDocs(q);
+      const rows = snap.docs.map(d => ({ code: d.id, ...d.data() }))
+        .sort((a,b) => {
+          const ta = a.createdAt?.toMillis ? a.createdAt.toMillis() : (new Date(a.createdAt || 0)).getTime();
+          const tb = b.createdAt?.toMillis ? b.createdAt.toMillis() : (new Date(b.createdAt || 0)).getTime();
+          return tb - ta;
+        });
+      // 단일 코드 정책: 첫 번째 코드만 사용
+      setInviteCodes(rows.slice(0,1));
+    } catch (e) {
+      console.error('내 초대코드 로드 오류:', e);
+    }
+  };
+
+  useEffect(() => { loadMyInviteCodes(); }, [currentUser]);
+
+  const handleGenerateSingleCodeIfNone = async () => {
+    if (!isTeacher()) return;
+    if (inviteCodes.length > 0) return; // 이미 있음
+    try {
+      for (let retry = 0; retry < 5; retry++) {
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        const ref = doc(db, 'inviteCodes', code);
+        const existsSnap = await getDocs(query(collection(db, 'inviteCodes'), where('__name__', '==', code)));
+        if (!existsSnap.empty) continue;
+        await setDoc(ref, {
+          teacherId: currentUser.uid,
+          teacherEmail: currentUser.email,
+          createdAt: serverTimestamp()
+        });
+        await loadMyInviteCodes();
+        break;
+      }
+    } catch (e) {
+      console.error('초대코드 생성 오류:', e);
+      alert('초대코드 생성 중 오류가 발생했습니다.');
+    }
+  };
+
+  useEffect(() => { handleGenerateSingleCodeIfNone(); }, [inviteCodes.length]);
 
   const handleLogout = async () => {
     if (window.confirm('정말 로그아웃하시겠습니까?')) {
@@ -22,6 +71,60 @@ const Settings = () => {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    const first = window.confirm('정말 회원탈퇴 하시겠습니까? 이 작업은 되돌릴 수 없습니다.');
+    if (!first) return;
+    const second = window.confirm('확인: 계정, 사용자 데이터(일부)가 삭제됩니다. 계속하시겠습니까?');
+    if (!second) return;
+
+    setLoading(true);
+    try {
+      await reauthenticateWithPopup(auth.currentUser, googleProvider);
+      const uid = auth.currentUser.uid;
+      await Promise.all([
+        deleteDoc(doc(db, 'users', uid)).catch(() => {}),
+        deleteDoc(doc(db, 'stars', uid)).catch(() => {})
+      ]);
+      await deleteUser(auth.currentUser);
+      alert('회원탈퇴가 완료되었습니다. 이용해 주셔서 감사합니다.');
+      navigate('/login');
+    } catch (error) {
+      console.error('회원탈퇴 실패:', error);
+      alert('회원탈퇴 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetRole = async () => {
+    if (!currentUser) return;
+    if (!window.confirm('역할 재설정을 진행하면 처음 로그인 시 보이는 역할 선택 모달이 다시 표시됩니다. 진행할까요?')) return;
+
+    setLoading(true);
+    try {
+      await (async () => {
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        await import('firebase/firestore').then(async ({ setDoc }) => {
+          await setDoc(userDocRef, {
+            email: currentUser.email,
+            role: 'needs_setup',
+            status: 'approved',
+            updatedAt: new Date(),
+            loginMethod: 'google'
+          }, { merge: true });
+        });
+      })();
+      alert('역할 재설정이 완료되었습니다. 다시 로그인하여 역할을 선택해주세요.');
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('역할 재설정 실패:', error);
+      alert('역할 재설정 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-friendly-mint via-white to-friendly-pink">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
@@ -34,6 +137,22 @@ const Settings = () => {
             계정 정보와 앱 설정을 확인하세요
           </p>
         </div>
+
+        {/* 교사 전용: 초대코드 관리 */}
+        {isTeacher() && (
+          <div className="bg-white rounded-3xl p-6 shadow-soft mb-6">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6 font-korean">🔑 초대코드</h2>
+            {inviteCodes.length ? (
+              <div className="p-4 bg-gray-50 rounded-xl">
+                <div className="text-sm text-gray-600 mb-1">반 초대코드</div>
+                <div className="text-2xl font-mono font-bold">{inviteCodes[0].code}</div>
+                <div className="text-xs text-gray-500 mt-2">이 코드는 여러 학생이 함께 사용할 수 있습니다.</div>
+              </div>
+            ) : (
+              <div className="text-gray-500">초대코드 생성 중...</div>
+            )}
+          </div>
+        )}
 
         {/* 계정 정보 카드 */}
         <div className="bg-white rounded-3xl p-6 shadow-soft mb-6">
@@ -245,6 +364,25 @@ const Settings = () => {
             ) : (
               '🚪 로그아웃'
             )}
+          </button>
+        </div>
+
+        {/* 고급 계정 설정 */}
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <button
+            onClick={handleResetRole}
+            disabled={loading}
+            className="bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold py-4 px-6 rounded-xl hover:from-blue-600 hover:to-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 font-korean"
+          >
+            🔁 역할 재설정 (모달 다시 띄우기)
+          </button>
+
+          <button
+            onClick={handleDeleteAccount}
+            disabled={loading}
+            className="bg-gradient-to-r from-gray-700 to-gray-800 text-white font-bold py-4 px-6 rounded-xl hover:from-black hover:to-gray-900 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 font-korean"
+          >
+            🗑️ 회원탈퇴
           </button>
         </div>
 

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
 const Help = () => {
-  const { isTeacher, isStudent } = useAuth();
+  const { isTeacher } = useAuth();
   const [openFaq, setOpenFaq] = useState(null);
 
   const toggleFaq = (index) => {
