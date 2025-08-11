@@ -6,7 +6,12 @@ import { getStudentStars } from '../utils/starAPI';
 import StarLevelDisplay from '../components/StarLevelDisplay';
 import ClassPetCard from '../components/ClassPetCard';
 
-const levelThreshold = (level) => 20 + (level - 1) * 10; // 간단 규칙: 20,30,40...
+// 학생 수 기반 레벨 임계값: L2=1.0×N, L3=2.0×N, L4=4.0×N (최소 1)
+const levelThreshold = (level, studentCount) => {
+  const multipliers = [0, 1.0, 2.0, 4.0];
+  const base = (multipliers[level] || 0) * (studentCount || 0);
+  return Math.max(1, Math.round(base));
+};
 
 const TeacherProgress = () => {
   const { currentUser, isTeacher } = useAuth();
@@ -33,6 +38,22 @@ const TeacherProgress = () => {
     { id: '8', title: '8차시: 한양도성의 성곽과 대문', icon: '🏰' },
   ]), []);
 
+  // 레슨별 총 문항 수 로드 유틸
+  const loadLessonTotals = useCallback(async (lessons) => {
+    const entries = await Promise.all(
+      lessons.map(async (lesson) => {
+        try {
+          const mod = await import(`../lessons/lesson${lesson.id}/config.js`);
+          const count = Array.isArray(mod.default?.questions) ? mod.default.questions.length : 8;
+          return [lesson.id, count];
+        } catch (e) {
+          return [lesson.id, 8];
+        }
+      })
+    );
+    return Object.fromEntries(entries);
+  }, []);
+
   const fetchClassProgress = useCallback(async () => {
     try {
       setLoading(true);
@@ -57,6 +78,7 @@ const TeacherProgress = () => {
       const progressData = [];
       let totalCompletedLessons = 0;
       let totalMarkers = 0;
+      const totalMap = await loadLessonTotals(lessonList);
 
       for (const lesson of lessonList) {
         const lessonProg = { ...lesson, completedStudents: 0, totalMarkers: 0, studentProgress: [] };
@@ -66,10 +88,11 @@ const TeacherProgress = () => {
             let isCompleted = false;
             let markerCount = 0;
             if (activityDoc.exists()) {
-              const data = activityDoc.data();
-              const questionsCompleted = data.questionsCompleted || 0;
+            const data = activityDoc.data();
+            const questionsCompleted = data.questionsCompleted || 0;
               markerCount = (data.markers || []).length;
-              isCompleted = questionsCompleted >= 8;
+            const denom = data.totalQuestions || totalMap[lesson.id] || 8;
+            isCompleted = questionsCompleted >= denom;
               if (isCompleted) {
                 lessonProg.completedStudents++;
                 totalCompletedLessons++;
@@ -98,34 +121,56 @@ const TeacherProgress = () => {
       rankings.sort((a, b) => b.stars - a.stars);
       setStarRanking(rankings);
       const totalStars = rankings.reduce((sum, s) => sum + s.stars, 0);
+      const studentCount = studentList.length;
 
       setClassStats({ totalStudents: studentList.length, totalStars, completedLessons: totalCompletedLessons, totalMarkers });
 
       // classes/{teacherId} 문서 로드 (없으면 가상)
       const classRef = doc(db, 'classes', currentUser.uid);
       const classSnap = await getDoc(classRef);
-      let cdoc = classSnap.exists() ? classSnap.data() : null;
+      const saved = classSnap.exists() ? classSnap.data() : null;
 
       // 파생 계산: xp=totalStars, level/nextLevelXp, unlockedLessons
       const derivedLevel = (() => {
-        let lvl = 1, xpNeed = levelThreshold(1), xpLeft = totalStars;
-        while (xpLeft >= xpNeed && lvl < 4) { xpLeft -= xpNeed; lvl += 1; xpNeed = levelThreshold(lvl); }
+        let lvl = 1, xpLeft = totalStars;
+        let xpNeed = levelThreshold(1, studentCount);
+        while (xpLeft >= xpNeed && lvl < 4) {
+          xpLeft -= xpNeed;
+          lvl += 1;
+          xpNeed = levelThreshold(lvl, studentCount);
+        }
         return lvl;
       })();
-      const nextXp = levelThreshold(derivedLevel);
 
-      const unlockedLessons = lessonList.map((lsn) => {
+       const unlockedLessons = lessonList.map((lsn) => {
         const lp = progressData.find(p => p.id === lsn.id);
         const rate = (lp && studentList.length) ? (lp.completedStudents / studentList.length) : 0;
         return rate >= 0.6; // 60% 이상 해금
       });
 
+      // 모노토닉 병합: 해금과 레벨 하향 금지
+      const prevUnlocked = Array.isArray(saved?.unlockedLessons) ? saved.unlockedLessons : new Array(lessonList.length).fill(false);
+      const finalUnlocked = lessonList.map((_, idx) => (prevUnlocked[idx] || unlockedLessons[idx]));
+      const finalLevel = Math.max(saved?.level || 1, derivedLevel);
+      const nextXp = levelThreshold(finalLevel, studentCount);
+
       setClassDoc({
         xp: totalStars,
-        level: derivedLevel,
+        level: finalLevel,
         nextLevelXp: nextXp,
-        unlockedLessons
+        unlockedLessons: finalUnlocked
       });
+
+      // 저장: 해금 유지/레벨 하락 방지
+      try {
+        await setDoc(classRef, {
+          xp: totalStars,
+          level: finalLevel,
+          nextLevelXp: nextXp,
+          unlockedLessons: finalUnlocked,
+          updatedAt: new Date()
+        }, { merge: true });
+      } catch {}
 
       // classes 문서를 실제 저장하려면 주석 해제 (선택)
       // await setDoc(classRef, { xp: totalStars, level: derivedLevel, nextLevelXp: nextXp, unlockedLessons, updatedAt: new Date() }, { merge: true });
@@ -135,7 +180,7 @@ const TeacherProgress = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentUser?.uid, lessonList]);
+  }, [currentUser?.uid, lessonList, loadLessonTotals]);
 
   useEffect(() => {
     if (!isTeacher() || !currentUser?.uid) { setLoading(false); return; }

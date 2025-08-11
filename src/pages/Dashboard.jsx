@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase';
 import { collection, query, where, doc, getDoc, getDocs } from 'firebase/firestore';
@@ -16,7 +16,12 @@ const Dashboard = () => {
   const [totalStars, setTotalStars] = useState(0);
   const [classDoc, setClassDoc] = useState(null);
 
-  const levelThreshold = (level) => 20 + (level - 1) * 10;
+  // 학생 수 기반 레벨 임계값: L2=1.0×N, L3=2.0×N, L4=4.0×N (최소 1)
+  const levelThreshold = (level, studentCount) => {
+    const multipliers = [0, 1.0, 2.0, 4.0];
+    const base = (multipliers[level] || 0) * (studentCount || 0);
+    return Math.max(1, Math.round(base));
+  };
 
   // 레슨 목록 정의
   const lessonList = useMemo(() => ([
@@ -29,6 +34,24 @@ const Dashboard = () => {
     { id: '7', title: '7차시: 서울의 궁궐', icon: '🏯' },
     { id: '8', title: '8차시: 한양도성의 성곽과 대문', icon: '🏰' },
   ]), []);
+
+  // 레슨별 총 문항 수 로드 유틸 (config.js의 questions.length 기반)
+  const loadLessonTotals = useCallback(async (lessons) => {
+    const entries = await Promise.all(
+      lessons.map(async (lesson) => {
+        try {
+          const mod = await import(`../lessons/lesson${lesson.id}/config.js`);
+          const count = Array.isArray(mod.default?.questions)
+            ? mod.default.questions.length
+            : 8;
+          return [lesson.id, count];
+        } catch (e) {
+          return [lesson.id, 8];
+        }
+      })
+    );
+    return Object.fromEntries(entries);
+  }, []);
 
   // 학생 개인 레슨 진행 상태/별 수 로드
   useEffect(() => {
@@ -43,15 +66,18 @@ const Dashboard = () => {
           getDoc(doc(db, "lessons", lesson.id, "activities", currentUser.uid))
         );
         const userActivitiesDocs = await Promise.all(userActivitiesPromises);
+        const totalMap = await loadLessonTotals(lessonList);
 
         lessonList.forEach((lesson, index) => {
           const activityDoc = userActivitiesDocs[index];
           let status = 'not_started';
           let completionRate = 0;
+          let totalQuestions = totalMap[lesson.id] || 8;
+          let questionsCompleted = 0;
           if (activityDoc.exists()) {
             const data = activityDoc.data();
-            const questionsCompleted = data.questionsCompleted || 0;
-            const totalQuestions = 8;
+            questionsCompleted = data.questionsCompleted || 0;
+            totalQuestions = data.totalQuestions || totalMap[lesson.id] || 8;
             completionRate = Math.round((questionsCompleted / totalQuestions) * 100);
             if (questionsCompleted === 0) status = 'in_progress';
             else if (questionsCompleted === totalQuestions) { status = 'completed'; completedCount++; }
@@ -61,7 +87,8 @@ const Dashboard = () => {
             ...lesson,
             status,
             completionRate,
-            questionsCompleted: activityDoc.exists() ? (activityDoc.data().questionsCompleted || 0) : 0
+            questionsCompleted,
+            totalQuestions
           });
         });
 
@@ -83,7 +110,7 @@ const Dashboard = () => {
     if (currentUser) {
       fetchLessonProgress();
     }
-  }, [currentUser, isStudent, lessonList]);
+  }, [currentUser, isStudent, lessonList, loadLessonTotals]);
 
   // 학생용: 반 해치 데이터(teacherId 기반) 로드
   useEffect(() => {
@@ -103,17 +130,22 @@ const Dashboard = () => {
         const starList = await Promise.all(studentList.map(async s => ({ id: s.id, stars: await getStudentStars(s.id) })));
         const totalClassStars = starList.reduce((sum, s) => sum + s.stars, 0);
 
-        // 레벨 계산
-        let lvl = 1; let xpNeed = levelThreshold(1); let xpLeft = totalClassStars;
-        while (xpLeft >= xpNeed && lvl < 4) { xpLeft -= xpNeed; lvl += 1; xpNeed = levelThreshold(lvl); }
-        const nextXp = levelThreshold(lvl);
+        // 레벨 계산 (학생 수 기반), 저장된 값이 있으면 하락 금지
+        const studentCount = studentList.length;
+        let lvl = 1; let xpNeed = levelThreshold(1, studentCount); let xpLeft = totalClassStars;
+        while (xpLeft >= xpNeed && lvl < 4) { xpLeft -= xpNeed; lvl += 1; xpNeed = levelThreshold(lvl, studentCount); }
+        const nextXp = levelThreshold(lvl, studentCount);
 
         // 차시 해금(60% 이상 완료)
+        const totalMap = await loadLessonTotals(lessonList);
         const completionCounts = await Promise.all(lessonList.map(async (lesson) => {
           let completed = 0;
+          const denom = totalMap[lesson.id] || 8;
           for (const s of studentList) {
             const activity = await getDoc(doc(db, 'lessons', lesson.id, 'activities', s.id));
-            if (activity.exists() && (activity.data().questionsCompleted || 0) >= 8) completed++;
+            const qc = activity.exists() ? (activity.data().questionsCompleted || 0) : 0;
+            const tq = activity.exists() ? (activity.data().totalQuestions || denom) : denom;
+            if (qc >= tq) completed++;
           }
           return completed;
         }));
@@ -125,7 +157,7 @@ const Dashboard = () => {
       }
     };
     fetchClassData();
-  }, [isStudent, teacherId, lessonList]);
+  }, [isStudent, teacherId, lessonList, loadLessonTotals]);
 
   // 상태별 스타일 및 텍스트 반환
   const getStatusInfo = (status, completionRate) => {
@@ -251,7 +283,7 @@ const Dashboard = () => {
                           <div className="bg-gradient-to-r from-green-400 to-green-600 h-2 rounded-full w-full"></div>
                         </div>
                       )}
-                      <p className="text-xs text-gray-500 font-korean">문제: {lesson.questionsCompleted}/8개 완료</p>
+                      <p className="text-xs text-gray-500 font-korean">문제: {lesson.questionsCompleted}/{lesson.totalQuestions || 8}개 완료</p>
                     </div>
                   </Link>
                 );

@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, Polygon, Polyline, FeatureGroup, CircleMarker, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
 import { EditControl } from "react-leaflet-draw";
 import { db, storage } from '../firebase';
-import { doc, setDoc, onSnapshot, updateDoc, arrayUnion, arrayRemove, serverTimestamp, collection, getDocs, query, where, getDoc, increment } from "firebase/firestore";
-import { ref } from 'firebase/storage';
+import { doc, setDoc, onSnapshot, updateDoc, arrayUnion, arrayRemove, serverTimestamp, collection, collectionGroup, getDocs, query, where, getDoc, increment, deleteDoc } from "firebase/firestore";
+// import { ref } from 'firebase/storage'; // Not currently used
 import { uploadMultipleImages } from '../utils/imageUpload'; // Import custom uploadMultipleImages function
 
 // Firebase Imports
@@ -22,6 +22,35 @@ L.Icon.Default.mergeOptions({
 
 // 기본 색상 (색상이 지정되지 않은 경우)
 const DEFAULT_COLOR = '#808080'; // 회색
+
+// === 가벼운 로깅 유틸 ===
+// 기본값: 필요한 정보만 출력. 로컬 스토리지로 토픽별 제어 가능: localStorage.setItem('mapview:log', JSON.stringify({render:true}))
+const getLogConfig = () => {
+  const defaults = {
+    role: false,
+    step: false,
+    events: false,
+    render: false,       // 렌더링 로그(많음)
+    dataCount: true,     // 단계별 최종 개수 요약
+    upload: false,
+    action: false,
+  };
+  try {
+    const raw = typeof window !== 'undefined' ? window.localStorage.getItem('mapview:log') : null;
+    if (!raw) return defaults;
+    const parsed = JSON.parse(raw);
+    return { ...defaults, ...(parsed || {}) };
+  } catch {
+    return defaults;
+  }
+};
+const log = (topic, ...args) => {
+  const cfg = getLogConfig();
+  if (cfg[topic]) {
+    // eslint-disable-next-line no-console
+    console.log(...args);
+  }
+};
 
 // 차시별 마커 안내 문구 (가이드 활동용)
 const LESSON_MARKER_PROMPTS = {
@@ -667,12 +696,16 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
   // 상태 변수들
   const [lessonData, setLessonData] = useState(null);
   const [markers, setMarkers] = useState([]);
+  // eslint-disable-next-line no-unused-vars
+  const [lastMarkersByStep, setLastMarkersByStep] = useState({});
   const [shapes, setShapes] = useState([]);
   const [, setEditingMarkerId] = useState(null);
   const [currentDescription, setCurrentDescription] = useState('');
   const [userColors, setUserColors] = useState({});
+  // eslint-disable-next-line no-unused-vars
   const [allClasses, setAllClasses] = useState([]);
   const [selectedClass, setSelectedClass] = useState('all');
+  // eslint-disable-next-line no-unused-vars
   const [classStudents, setClassStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState('all');
   const [isFirebaseAvailable, setIsFirebaseAvailable] = useState(false); // Firebase 연결 상태
@@ -705,6 +738,31 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
   const currentUser = authContext?.currentUser || null;
   const classId = authContext?.classId || null;
   const teacherId = authContext?.teacherId || null;
+  const [resolvedClassId, setResolvedClassId] = useState(null);
+  
+  // classId 보강: auth에 없을 때 users/{uid}에서 조회
+  useEffect(() => {
+    if (!isFirebaseAvailable || !currentUser) {
+      setResolvedClassId(null);
+      return;
+    }
+    if (classId) {
+      setResolvedClassId(classId);
+      return;
+    }
+    (async () => {
+      try {
+        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+        if (userDoc.exists()) {
+          setResolvedClassId(userDoc.data().classId || null);
+        }
+      } catch (e) {
+        console.error("사용자 classId 조회 오류:", e);
+      }
+    })();
+  }, [isFirebaseAvailable, currentUser, classId]);
+  
+  const activeClassId = classId || resolvedClassId;
   
   // Firebase 연결 상태 확인
   useEffect(() => {
@@ -735,19 +793,19 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
     try {
       if (typeof authContext.isTeacher === 'function' && authContext.isTeacher()) {
         setUserRole('teacher');
-        console.log("교사 권한이 확인되었습니다:", currentUser.email);
+        log('role', `교사 권한 확인: ${currentUser.email}`);
       } else if (typeof authContext.isStudent === 'function' && authContext.isStudent()) {
         setUserRole('student');
-        console.log("학생 권한이 확인되었습니다:", currentUser.email);
+        log('role', `학생 권한 확인: ${currentUser.email}`);
       } else {
         // userType 필드로 직접 확인 (대체 방법)
         const userType = authContext.userType || currentUser.userType;
         if (userType === 'teacher') {
           setUserRole('teacher');
-          console.log("교사 권한이 확인되었습니다 (userType 필드):", currentUser.email);
+        log('role', `교사 권한 확인(userType): ${currentUser.email}`);
         } else if (userType === 'student') {
           setUserRole('student');
-          console.log("학생 권한이 확인되었습니다 (userType 필드):", currentUser.email);
+        log('role', `학생 권한 확인(userType): ${currentUser.email}`);
         } else {
           console.log("권한을 확인할 수 없습니다. 관리자에게 문의하세요:", currentUser.email);
           setUserRole('unknown');
@@ -763,39 +821,45 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
   const isTeacher = useCallback(() => userRole === 'teacher', [userRole]);
   const isStudent = useCallback(() => userRole === 'student', [userRole]);
 
-  // 사용자 색상 정보 로드
+  // 사용자 색상 정보 로드 (권한 범위 내: 본인만)
   useEffect(() => {
-    const loadUserColors = async () => {
+    const loadOwnColor = async () => {
       if (!isFirebaseAvailable || !currentUser) return;
-      
       try {
-        // 현재 레슨에 참여한 모든 사용자의 색상 정보 로드
-        const usersQuery = query(collection(db, "users"));
-        const userDocs = await getDocs(usersQuery);
-        
-        const colorsMap = {};
-        userDocs.docs.forEach(doc => {
-          const userData = doc.data();
-          const userId = doc.id;
-          
-          // 개인 색상이 있으면 우선 사용, 없으면 반 색상 사용
-          const userColor = userData.personalColor || userData.classColor || DEFAULT_COLOR;
-          colorsMap[userId] = userColor;
-        });
-        
-        setUserColors(colorsMap);
+        const ownDoc = await getDoc(doc(db, "users", currentUser.uid));
+        if (ownDoc.exists()) {
+          const data = ownDoc.data();
+          const ownColor = data.personalColor || data.classColor;
+          if (ownColor) {
+            setUserColors(prev => ({ ...prev, [currentUser.uid]: ownColor }));
+          }
+        }
       } catch (error) {
-        console.error("사용자 색상 정보 로드 오류:", error);
+        // 권한 문제 등은 무시하고 폴백 컬러 사용
       }
     };
-    
-    loadUserColors();
+    loadOwnColor();
   }, [currentUser, isFirebaseAvailable]);
 
-  // 사용자별 색상 가져오기
+  // uid로부터 안정적인 색상 생성 (폴백)
+  const fallbackColorForUserId = useCallback((userId) => {
+    if (!userId) return DEFAULT_COLOR;
+    // 간단한 해시로 12색 팔레트 매핑
+    const palette = [
+      '#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4',
+      '#46f0f0', '#f032e6', '#bcf60c', '#fabebe', '#008080', '#e6beff'
+    ];
+    let hash = 0;
+    for (let i = 0; i < userId.length; i++) {
+      hash = (hash * 31 + userId.charCodeAt(i)) >>> 0;
+    }
+    return palette[hash % palette.length];
+  }, []);
+
+  // 사용자별 색상 가져오기 (저장된 색상 우선, 없으면 uid 기반 폴백)
   const getUserColor = useCallback((userId) => {
-    return userColors[userId] || DEFAULT_COLOR;
-  }, [userColors]);
+    return userColors[userId] || fallbackColorForUserId(userId) || DEFAULT_COLOR;
+  }, [userColors, fallbackColorForUserId]);
 
   // 레슨별 지도 설정 적용
   const lessonConfig = LESSON_MAP_CONFIGS[lessonId] || LESSON_MAP_CONFIGS['1'];
@@ -853,12 +917,76 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
 
   // Ref to the user's activity document in Firestore - 반별 구조로 변경
   const getUserActivityDocRef = useCallback((uid, targetClassId = null) => {
-    const effectiveClassId = targetClassId || classId || teacherId;
+    const effectiveClassId = targetClassId || activeClassId || teacherId;
     return (uid && effectiveClassId && isFirebaseAvailable) ? 
       doc(db, "lessons", String(lessonId), "classActivities", effectiveClassId, "students", uid) : null;
-  }, [lessonId, classId, teacherId, isFirebaseAvailable]);
+  }, [lessonId, activeClassId, teacherId, isFirebaseAvailable]);
 
   const userActivityDocRef = getUserActivityDocRef(currentUser?.uid);
+
+  // 한 번만 실행하는 개인 마이그레이션: 내 markers를 publicMarkers로 복제
+  useEffect(() => {
+    const migrateOwnMarkersToPublic = async () => {
+      try {
+        if (!isFirebaseAvailable || !currentUser || !userActivityDocRef) return;
+        const flagKey = `migrated:${lessonId}:${currentUser.uid}`;
+        if (sessionStorage.getItem(flagKey)) return;
+
+        const snap = await getDoc(userActivityDocRef);
+        if (!snap.exists()) {
+          sessionStorage.setItem(flagKey, '1');
+          return;
+        }
+
+        const data = snap.data();
+        const markersArray = Array.isArray(data.markers) ? data.markers : [];
+        if (markersArray.length === 0) {
+          sessionStorage.setItem(flagKey, '1');
+          return;
+        }
+
+        const writes = markersArray.map(async (m) => {
+          const publicMarkerRef = doc(db, 'lessons', String(lessonId), 'publicMarkers', m.id);
+          const publicData = {
+            id: m.id,
+            position: Array.isArray(m.position)
+              ? m.position
+              : (m.position && typeof m.position === 'object' && m.position.lat != null && m.position.lng != null)
+                ? [m.position.lat, m.position.lng]
+                : m.position,
+            title: m.title,
+            description: m.description,
+            content: m.content,
+            images: m.images || [],
+            userId: m.userId,
+            userName: m.userName,
+            classId: m.classId || data.classId || activeClassId || null,
+            color: m.color || getUserColor(m.userId),
+            createdAt: m.createdAt,
+            updatedAt: m.updatedAt,
+            lessonId: String(lessonId),
+            commentCount: m.commentCount || 0,
+            tags: m.tags || [],
+            likes: m.likes || 0,
+            likedBy: m.likedBy || [],
+            isPublic: true,
+            isEditable: false,
+          };
+          try {
+            await setDoc(publicMarkerRef, publicData, { merge: true });
+          } catch (_) {
+            // 권한 문제 등은 건너뜀
+          }
+        });
+        await Promise.all(writes);
+        sessionStorage.setItem(flagKey, '1');
+      } catch (_) {
+        // 무시
+      }
+    };
+    migrateOwnMarkersToPublic();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isFirebaseAvailable, currentUser, userActivityDocRef, lessonId]);
 
   // 학생 문서 초기화 - 문서가 없을 경우 빈 문서 생성
   useEffect(() => {
@@ -867,7 +995,7 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       try {
         const docSnap = await getDoc(userActivityDocRef);
         if (!docSnap.exists()) {
-          const effectiveClassId = classId || teacherId;
+          const effectiveClassId = activeClassId;
           await setDoc(userActivityDocRef, { 
             markers: [], 
             shapes: [], 
@@ -884,16 +1012,175 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       }
     };
     initializeStudentDocument();
-  }, [currentUser, userActivityDocRef, isFirebaseAvailable, isStudent, lessonId, classId, teacherId]);
+  }, [currentUser, userActivityDocRef, isFirebaseAvailable, isStudent, lessonId, activeClassId, teacherId]);
 
-  // === 이벤트 기반 업데이트 시스템 ===
-  
-  // 반 이벤트 알림 함수
+  // === 학생용 데이터 로딩 시스템 ===
+  useEffect(() => {
+    // 학생이 아니거나, 필수 정보가 없으면 실행하지 않음 (4단계는 activeClassId 불필요)
+    if (!isStudent() || !isFirebaseAvailable || !currentUser) {
+      return;
+    }
+
+    const loadStudentData = async () => {
+        log('step', `학생 ${currentStep}단계 데이터 로딩 시작 (학급: ${activeClassId})`);
+      
+      // 1단계는 항상 비움
+      if (currentStep === 1) {
+        setMarkers([]);
+        setShapes([]);
+        return;
+      }
+      
+      // 2단계: 우리 반 학생들의 모든 데이터 로드 (activeClassId 필요)
+      if (currentStep === 2) {
+        if (!activeClassId) return; // 반 정보 없으면 대기
+        const studentsRef = collection(db, "lessons", String(lessonId), "classActivities", activeClassId, "students");
+        const snapshot = await getDocs(studentsRef);
+        let allMarkers = [];
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          if (data.markers) {
+            allMarkers.push(...data.markers.map(m => ({ ...m, userId: doc.id, classId: activeClassId, color: m.color || getUserColor(doc.id) })));
+          }
+        });
+        log('dataCount', `2단계: 총 ${allMarkers.length}개 마커 로드 완료`);
+        setMarkers(allMarkers);
+      }
+      
+      // 4단계: 전체 학급 학생 문서에서 모든 마커 로드 (2단계와 동일 구조)
+      else if (currentStep === 4) {
+        log('step', '학생 4단계: 전체 학급 학생 데이터 로드 시작');
+        const studentsSnap = await getDocs(collectionGroup(db, 'students'));
+        const byKey = new Map();
+        const pushUnique = (mk) => {
+          const key = mk.userId ? `${mk.id}-${mk.userId}` : mk.id;
+          const existing = byKey.get(key);
+          if (!existing) {
+            byKey.set(key, mk);
+          } else {
+            // 이미지가 더 많은 쪽을 우선
+            const a = Array.isArray(existing.images) ? existing.images.length : 0;
+            const b = Array.isArray(mk.images) ? mk.images.length : 0;
+            if (b > a) byKey.set(key, mk);
+          }
+        };
+
+        studentsSnap.forEach((studentDoc) => {
+          const path = studentDoc.ref.path;
+          if (!path.includes(`/lessons/${String(lessonId)}/classActivities/`)) return;
+          const data = studentDoc.data();
+          if (!Array.isArray(data.markers)) return;
+          const segments = path.split('/');
+          const idx = segments.indexOf('classActivities');
+          const classIdFromPath = idx >= 0 ? segments[idx + 1] : undefined;
+          data.markers.forEach((m) => {
+            const positionArray = Array.isArray(m.position)
+              ? m.position
+              : (m.position && typeof m.position === 'object' && m.position.lat != null && m.position.lng != null)
+                ? [m.position.lat, m.position.lng]
+                : null;
+            if (!positionArray) return;
+            pushUnique({
+              ...m,
+              position: positionArray,
+              userId: m.userId || studentDoc.id,
+              classId: m.classId || data.classId || classIdFromPath,
+              color: m.color || getUserColor(m.userId || studentDoc.id),
+            });
+          });
+        });
+
+        // publicMarkers도 병합해 누락 보완
+        try {
+          const publicRef = collection(db, 'lessons', String(lessonId), 'publicMarkers');
+          const publicSnap = await getDocs(publicRef);
+          publicSnap.forEach((docSnap) => {
+            const d = docSnap.data();
+            const positionArray = Array.isArray(d.position)
+              ? d.position
+              : (d.position && typeof d.position === 'object' && d.position.lat != null && d.position.lng != null)
+                ? [d.position.lat, d.position.lng]
+                : null;
+            if (!positionArray) return;
+            pushUnique({ ...d, position: positionArray });
+          });
+        } catch (_) {}
+
+        const allMarkers = Array.from(byKey.values());
+        log('dataCount', `4단계: 총 ${allMarkers.length}개 마커 로드 완료 (merged)`);
+        setMarkers(allMarkers);
+      }
+    };
+
+    loadStudentData();
+
+    // 실시간 업데이트 리스너 (모든 학급 이벤트 감지)
+    const eventsRef = collection(db, "lessons", String(lessonId), "classEvents");
+    const unsubscribe = onSnapshot(eventsRef, () => {
+      log('events', '실시간 이벤트 감지, 데이터 다시 로드');
+      loadStudentData();
+    });
+
+    return () => unsubscribe();
+
+  }, [currentStep, isStudent, isFirebaseAvailable, currentUser, activeClassId, lessonId, getUserColor]);
+
+  // === 교사용 데이터 로딩 시스템 ===
+  useEffect(() => {
+    if (!isTeacher()) return; // 👈 학생일 경우 이 로직이 즉시 종료되도록 만듭니다!
+    
+    if (!isFirebaseAvailable || !currentUser) return;
+
+    const loadTeacherData = async () => {
+        log('step', `교사 ${currentStep}단계 데이터 로딩 시작`);
+      
+      // 교사는 모든 단계에서 선택된 반의 데이터를 볼 수 있음
+      if (selectedClass && selectedClass !== 'all') {
+        // 특정 반 선택 시
+        const studentsRef = collection(db, "lessons", String(lessonId), "classActivities", selectedClass, "students");
+        const snapshot = await getDocs(studentsRef);
+        let allMarkers = [];
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          if (data.markers) {
+            allMarkers.push(...data.markers.map(m => ({ ...m, userId: doc.id, classId: selectedClass, color: m.color || getUserColor(doc.id) })));
+          }
+        });
+        setMarkers(allMarkers);
+      } else {
+        // 전체 반 보기 시 (4단계와 유사)
+        const studentsQuery = query(collectionGroup(db, "students"), where("lessonId", "==", String(lessonId)));
+        const snapshot = await getDocs(studentsQuery);
+        let allMarkers = [];
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          if (data.markers) {
+            allMarkers.push(...data.markers.map(m => ({ ...m, userId: doc.id, classId: data.classId, color: m.color || getUserColor(doc.id) })));
+          }
+        });
+        setMarkers(allMarkers);
+      }
+    };
+
+    loadTeacherData();
+
+    // 실시간 업데이트 리스너
+    const eventsRef = collection(db, "lessons", String(lessonId), "classEvents");
+    const unsubscribe = onSnapshot(eventsRef, () => {
+      log('events', '교사 실시간 이벤트 감지, 데이터 다시 로드');
+      loadTeacherData();
+    });
+
+    return () => unsubscribe();
+
+  }, [currentStep, isTeacher, isFirebaseAvailable, currentUser, selectedClass, lessonId, getUserColor]);
+
+  // === 이벤트 알림 시스템 ===
   const notifyClassEvent = async (eventType, additionalData = {}) => {
-    if (!isFirebaseAvailable || !classId || !currentUser) return;
+    if (!isFirebaseAvailable || !activeClassId || !currentUser) return;
     
     try {
-      const eventDocRef = doc(db, "lessons", String(lessonId), "classEvents", classId);
+      const eventDocRef = doc(db, "lessons", String(lessonId), "classEvents", activeClassId);
       await setDoc(eventDocRef, {
         lastUpdated: serverTimestamp(),
         lastUpdatedBy: currentUser.uid,
@@ -907,294 +1194,6 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       console.error("이벤트 알림 실패:", error);
     }
   };
-
-  // 교사용: 전체 반 목록 로드
-  useEffect(() => {
-    const loadAllClasses = async () => {
-      if (isFirebaseAvailable && isTeacher()) {
-        try {
-          const usersQuery = query(
-            collection(db, "users"), 
-            where("role", "==", "student")
-          );
-          
-          const userDocs = await getDocs(usersQuery);
-          const classes = new Set();
-          
-          userDocs.docs.forEach(doc => {
-            const userData = doc.data();
-            if (userData.classId) {
-              classes.add(userData.classId);
-            }
-          });
-          
-          setAllClasses(Array.from(classes).sort());
-        } catch (error) {
-          console.error("전체 반 목록 로드 오류:", error);
-        }
-      }
-    };
-    
-    if (currentUser && isFirebaseAvailable) {
-      loadAllClasses();
-    }
-  }, [currentUser, isTeacher, isFirebaseAvailable]);
-
-  // 교사가 보는 경우 첫 로드 시 학급의 모든 학생 정보를 로드
-  useEffect(() => {
-    const loadClassStudents = async () => {
-      if (isFirebaseAvailable && isTeacher()) {
-        const targetClassId = selectedClass === 'all' ? classId : selectedClass;
-        if (!targetClassId) return;
-        
-        try {
-          const studentsQuery = query(
-            collection(db, "users"), 
-            where("role", "==", "student"), 
-            where("classId", "==", targetClassId)
-          );
-          
-          const studentDocs = await getDocs(studentsQuery);
-          const studentsData = studentDocs.docs.map(doc => ({
-            id: doc.id,
-            email: doc.data().email,
-            studentNumber: doc.data().studentNumber,
-            classId: doc.data().classId
-          }));
-          
-          // 학번 순으로 정렬
-          studentsData.sort((a, b) => a.studentNumber - b.studentNumber);
-          setClassStudents(studentsData);
-          
-          // 특정 학생이 지정된 경우 해당 학생 선택
-          if (studentId) {
-            setSelectedStudent(studentId);
-          }
-        } catch (error) {
-          console.error("학급 학생 정보 로드 오류:", error);
-        }
-      }
-    };
-    
-    if (currentUser && isFirebaseAvailable) {
-      loadClassStudents();
-    }
-  }, [currentUser, classId, isTeacher, studentId, selectedClass, isFirebaseAvailable]);
-
-  // === 이벤트 기반 데이터 로딩 시스템 ===
-  useEffect(() => {
-    // Firebase를 사용할 수 없는 경우 빈 배열로 초기화하고 종료
-    if (!isFirebaseAvailable) {
-      setMarkers([]);
-      setShapes([]);
-      return;
-    }
-
-    if (!currentUser) {
-      console.log("User not logged in, cannot load data.");
-      setMarkers([]);
-      setShapes([]);
-      return;
-    }
-
-    // 중복 마커 제거 유틸리티 함수
-    const removeDuplicateMarkers = (markers) => {
-      const seen = new Map();
-      const result = [];
-      for (let i = markers.length - 1; i >= 0; i--) {
-        const marker = markers[i];
-        if (!marker.id) { result.unshift(marker); continue; }
-        if (!seen.has(marker.id)) { seen.set(marker.id, true); result.unshift(marker); }
-      }
-      return result;
-    };
-
-    // 학생인 경우: 자신의 데이터(실시간) + 반 전체 데이터(이벤트 기반)
-    if (isStudent()) {
-      // 필수 ref 확인
-      if (!userActivityDocRef || !classId) {
-        setMarkers([]);
-        setShapes([]);
-        return;
-      }
-
-      const unsubscribe = onSnapshot(userActivityDocRef, (docSnap) => {
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          const myMarkers = (data.markers || []).map(marker => ({
-            ...marker,
-            isOwnMarker: true,
-            color: marker.color || getUserColor(currentUser.uid) || DEFAULT_COLOR
-          }));
-
-          const loadClassData = async () => {
-            try {
-              const classActivitiesRef = collection(db, "lessons", String(lessonId), "classActivities", classId, "students");
-              const querySnapshot = await getDocs(classActivitiesRef);
-              let allClassMarkers = [];
-              const markerIds = new Set(myMarkers.map(m => m.id));
-              querySnapshot.forEach((doc) => {
-                if (doc.id === currentUser.uid) return;
-                const data = doc.data();
-                if (data.markers) {
-                  const uniqueMarkers = data.markers.filter(marker => !markerIds.has(marker.id));
-                  uniqueMarkers.forEach(marker => markerIds.add(marker.id));
-                  const classMarkersWithUser = uniqueMarkers.map(marker => ({
-                    ...marker,
-                    isOwnMarker: false,
-                    color: marker.color || getUserColor(doc.id) || DEFAULT_COLOR,
-                    comments: marker.comments || [],
-                    commentCount: marker.commentCount || (marker.comments ? marker.comments.length : 0),
-                    likes: marker.likes || 0,
-                    likedBy: marker.likedBy || []
-                  }));
-                  allClassMarkers = [...allClassMarkers, ...classMarkersWithUser];
-                }
-              });
-              const combinedMarkers = [...myMarkers, ...allClassMarkers];
-              const uniqueMarkers = removeDuplicateMarkers(combinedMarkers);
-              setMarkers(uniqueMarkers);
-              setShapes(data.shapes || []);
-            } catch (error) {
-              console.error("반 전체 데이터 로드 오류:", error);
-              setMarkers(removeDuplicateMarkers(myMarkers));
-              setShapes(data.shapes || []);
-            }
-          };
-
-          // 초기 로드
-          loadClassData();
-
-          // 이벤트 기반 업데이트 리스너 (classId 확인)
-          let eventUnsubscribe = null;
-          if (classId) {
-            const eventDocRef = doc(db, "lessons", String(lessonId), "classEvents", classId);
-            eventUnsubscribe = onSnapshot(eventDocRef, (eventDoc) => {
-              if (eventDoc.exists()) {
-                const eventData = eventDoc.data();
-                if (eventData?.lastUpdatedBy !== currentUser.uid) {
-                  console.log(`이벤트 감지: ${eventData.eventType} by ${eventData.lastUpdatedBy}`);
-                  loadClassData();
-                }
-              }
-            }, (error) => {
-              console.error("이벤트 리스너 오류:", error);
-            });
-          }
-
-          return () => { if (eventUnsubscribe) eventUnsubscribe(); };
-        } else {
-          setMarkers([]);
-          setShapes([]);
-        }
-      }, (error) => {
-        console.error("Error listening to Firestore:", error);
-      });
-
-      return () => { unsubscribe(); };
-    } else if (isTeacher()) {
-      let targetClassId;
-      if (selectedClass === 'all') {
-        if (allClasses.length > 0) {
-          targetClassId = allClasses[0];
-        } else {
-          targetClassId = classId;
-        }
-      } else {
-        targetClassId = selectedClass;
-      }
-      
-      if (!targetClassId) {
-        console.log("교사 모드: 표시할 반이 선택되지 않았습니다.");
-        return;
-      }
-      
-      // 특정 학생의 데이터만 보기 (실시간)
-      if (selectedStudent !== 'all') {
-        const studentDocRef = getUserActivityDocRef(selectedStudent, targetClassId);
-        if (!studentDocRef) return;
-        
-        const unsubscribe = onSnapshot(studentDocRef, (docSnap) => {
-          if (docSnap.exists()) {
-            const data = docSnap.data();
-            const markersWithClass = (data.markers || []).map(marker => ({
-              ...marker,
-              classId: targetClassId,
-              color: marker.color || getUserColor(selectedStudent) || DEFAULT_COLOR
-            }));
-            setMarkers(removeDuplicateMarkers(markersWithClass));
-            setShapes(data.shapes || []);
-          } else {
-            setMarkers([]);
-            setShapes([]);
-          }
-        }, (error) => {
-          console.error("Error listening to student data:", error);
-        });
-        
-        return () => { unsubscribe(); };
-      } 
-      // 전체 학생 데이터 보기 (이벤트 기반)
-      else {
-        const classActivitiesRef = collection(db, "lessons", String(lessonId), "classActivities", targetClassId, "students");
-        
-        // 전체 반 데이터 로딩 함수
-        const fetchAllClassData = async () => {
-          try {
-            const querySnapshot = await getDocs(classActivitiesRef);
-            
-            let allMarkers = [];
-            let allShapes = [];
-            const markerIds = new Set();
-            
-            querySnapshot.forEach((doc) => {
-              const data = doc.data();
-              
-              if (data.markers) {
-                const uniqueMarkers = data.markers.filter(marker => !markerIds.has(marker.id));
-                uniqueMarkers.forEach(marker => markerIds.add(marker.id));
-                
-                const markersWithClass = uniqueMarkers.map(marker => ({
-                  ...marker,
-                  classId: targetClassId,
-                  userId: doc.id,
-                  color: marker.color || getUserColor(doc.id) || DEFAULT_COLOR,
-                  comments: marker.comments || [],
-                  commentCount: marker.commentCount || (marker.comments ? marker.comments.length : 0),
-                  likes: marker.likes || 0,
-                  likedBy: marker.likedBy || []
-                }));
-                allMarkers = [...allMarkers, ...markersWithClass];
-              }
-              if (data.shapes) allShapes = [...allShapes, ...data.shapes];
-            });
-            
-            setMarkers(removeDuplicateMarkers(allMarkers));
-            setShapes(allShapes);
-          } catch (error) {
-            console.error("Error loading class data:", error);
-          }
-        };
-        
-        // 초기 로드
-        fetchAllClassData();
-        
-        // 이벤트 기반 업데이트 리스너
-        const eventDocRef = doc(db, "lessons", String(lessonId), "classEvents", targetClassId);
-        const eventUnsubscribe = onSnapshot(eventDocRef, (eventDoc) => {
-          if (eventDoc.exists()) {
-            const eventData = eventDoc.data();
-            console.log(`교사 모드 - 이벤트 감지: ${eventData.eventType} by ${eventData.lastUpdatedBy}`);
-            fetchAllClassData();
-          }
-        }, (error) => {
-          console.error("교사 모드 이벤트 리스너 오류:", error);
-        });
-        
-        return () => { eventUnsubscribe(); };
-      }
-    }
-  }, [currentUser, lessonId, isStudent, isTeacher, userActivityDocRef, selectedStudent, selectedClass, getUserColor, isFirebaseAvailable, classId, teacherId]);
 
   // --- Event Handlers with Firestore Integration ---
 
@@ -1228,7 +1227,7 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
           content: '',
           images: [],
           userId: 'offline-user',
-          classId: (classId || teacherId || 'offline-class'),
+          classId: (activeClassId || teacherId || 'offline-class'),
           color: DEFAULT_COLOR,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -1259,7 +1258,7 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       try {
         const docSnap = await getDoc(userActivityDocRef);
         if (!docSnap.exists()) {
-          const effectiveClassId = classId || teacherId;
+          const effectiveClassId = activeClassId || teacherId;
           await setDoc(userActivityDocRef, { 
             markers: [], 
             shapes: [], 
@@ -1279,7 +1278,7 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
     }
     
     // 교사인 경우: 다른 학생/반 데이터를 보고 있을 때는 추가 불가
-    if (isTeacher() && (selectedStudent !== 'all' || selectedClass !== classId)) {
+    if (isTeacher() && (selectedStudent !== 'all' || selectedClass !== activeClassId)) {
       console.error("Cannot add marker: Teacher viewing other student's/class data.");
       alert('다른 학생이나 반의 데이터를 보고 있을 때는 마커를 추가할 수 없습니다.');
       return; 
@@ -1287,15 +1286,10 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
 
     // 마커 생성 확인 및 폼 표시
     if (window.confirm('이곳에 마커를 표시하시겠습니까?')) {
-      // 차시별 맞춤 안내 문구 설정
-      const defaultDescription = isStudent() ? 
-        (LESSON_MARKER_PROMPTS[lessonId] || '이 위치에 대한 설명을 작성해주세요') :
-        '';
-      
-      // 새 마커 폼 상태 설정
+      // 새 마커 폼 상태 설정 (설명은 placeholder만 사용하고 값은 비워둠)
       setNewMarkerPosition([latlng.lat, latlng.lng]);
       setNewMarkerTitle('');
-      setNewMarkerDescription(defaultDescription);
+      setNewMarkerDescription('');
       setNewMarkerContent('');
       setNewMarkerFiles([]);
       setShowNewMarkerForm(true);
@@ -1309,22 +1303,29 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       return;
     }
 
+    const markerId = `marker_${Date.now()}_${currentUser.uid}`;
     try {
       setIsUploading(true);
+      
+      // 반 정보 확인 (학생/교사 공통). 없으면 저장 보류
+      const effectiveClassIdForSave = activeClassId || teacherId;
+      if (!effectiveClassIdForSave) {
+        alert('반 정보 로딩 중입니다. 잠시 후 다시 시도해주세요.');
+        setIsUploading(false);
+        return;
+      }
       
       // 이미지 업로드 처리
       let imageUrls = [];
       if (newMarkerFiles && newMarkerFiles.length > 0) {
         try {
-          const tempMarkerId = `marker_${Date.now()}_${currentUser.uid}`;
-          imageUrls = await uploadImagesToStorage(newMarkerFiles, tempMarkerId);
+          imageUrls = await uploadImagesToStorage(newMarkerFiles, markerId);
         } catch (uploadError) {
           console.error("이미지 업로드 실패:", uploadError);
           alert("이미지 업로드에 실패했지만 텍스트 내용은 저장됩니다.");
         }
       }
 
-      const markerId = `marker_${Date.now()}_${currentUser.uid}`;
       const newMarker = {
         id: markerId,
         position: newMarkerPosition,
@@ -1334,7 +1335,7 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
         images: imageUrls,
         userId: currentUser.uid,
         userName: currentUser.email.split('@')[0],
-        classId: classId,
+        classId: effectiveClassIdForSave,
         color: getUserColor(currentUser.uid),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -1346,14 +1347,45 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
         likedBy: []
       };
       
-      // 로컬 상태 업데이트
-      setMarkers((prevMarkers) => [...prevMarkers, newMarker]);
+      // 로컬 상태 업데이트 (낙관적)
+      setMarkers((prevMarkers) => [...(prevMarkers || []), newMarker]);
       
       // Firestore에 저장
       await updateDoc(userActivityDocRef, {
         markers: arrayUnion(newMarker),
-        lastUpdated: serverTimestamp()
+        lastUpdated: serverTimestamp(),
+        lessonId: String(lessonId),
+        classId: effectiveClassIdForSave,
       });
+      
+      // 공개 컬렉션에 복제
+      try {
+        const publicMarkerData = {
+          id: newMarker.id,
+          position: newMarker.position,
+          title: newMarker.title,
+          description: newMarker.description,
+          content: newMarker.content,
+          images: newMarker.images || [],
+          userId: newMarker.userId,
+          userName: newMarker.userName,
+          classId: newMarker.classId,
+          color: newMarker.color,
+          createdAt: newMarker.createdAt,
+          updatedAt: newMarker.updatedAt,
+          lessonId: String(lessonId),
+          commentCount: newMarker.commentCount || 0,
+          tags: newMarker.tags || [],
+          likes: newMarker.likes || 0,
+          likedBy: newMarker.likedBy || [],
+          isPublic: true,
+          isEditable: false
+        };
+        const publicMarkerRef = doc(db, "lessons", String(lessonId), "publicMarkers", newMarker.id);
+        await setDoc(publicMarkerRef, publicMarkerData);
+      } catch (e) {
+        console.warn("publicMarkers 복제 실패 (생성):", e);
+      }
       
       // 이벤트 알림 전송
       await notifyClassEvent('marker_added', {
@@ -1369,7 +1401,7 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
     } catch (error) {
       console.error("마커 저장 오류:", error);
       // 실패 시 로컬 상태 되돌리기
-      setMarkers((prevMarkers) => prevMarkers.filter(m => m.position !== newMarkerPosition));
+      setMarkers((prevMarkers) => (prevMarkers || []).filter(m => m.id !== markerId));
       alert(`마커 저장 중 오류가 발생했습니다: ${error.message}`);
     } finally {
       setIsUploading(false);
@@ -1542,6 +1574,7 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
     }
   };
 
+  // eslint-disable-next-line no-unused-vars
   const handleEditClick = (marker) => {
     // 마커 작성자이거나 교사인 경우에만 수정 허용
     if (marker.userId !== currentUser.uid && !isTeacher()) {
@@ -1623,6 +1656,20 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
             markers: updatedMarkersArray, 
             lastUpdated: serverTimestamp()
         });
+        
+        // 공개 컬렉션 업데이트
+        try {
+          const publicMarkerRef = doc(db, "lessons", String(lessonId), "publicMarkers", markerId);
+          await updateDoc(publicMarkerRef, {
+            title: updatedMarker.title,
+            description: updatedMarker.description,
+            content: updatedMarker.content,
+            images: updatedMarker.images || [],
+            updatedAt: updatedMarker.updatedAt
+          }, { merge: true });
+        } catch (e) {
+          console.warn("publicMarkers 업데이트 실패 (수정):", e);
+        }
         console.log(`Marker ${markerId} updated in Firestore`);
         
         // 이벤트 알림 전송 (다른 학생들에게 알림)
@@ -1642,6 +1689,7 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
     }
   };
 
+  // eslint-disable-next-line no-unused-vars
   const handleCancelEdit = () => {
     setEditingMarkerId(null); // Exit editing mode - this will cause re-render
     setCurrentDescription('');
@@ -1680,7 +1728,7 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
         console.log("교사 권한으로 모든 학생 문서에서 마커 삭제 시도");
         
         // 현재 반의 모든 학생 문서 확인
-        const targetClassId = markerToDelete.classId || classId;
+        const targetClassId = markerToDelete.classId || activeClassId;
         const classActivitiesRef = collection(db, "lessons", String(lessonId), "classActivities", targetClassId, "students");
         
         try {
@@ -1708,6 +1756,13 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
           // 모든 삭제 작업을 병렬로 실행
           await Promise.all(deletePromises);
           console.log(`마커 ${markerId} 모든 문서에서 삭제 완료`);
+          // 공개 컬렉션 삭제
+          try {
+            const publicMarkerRef = doc(db, "lessons", String(lessonId), "publicMarkers", markerId);
+            await deleteDoc(publicMarkerRef);
+          } catch (e) {
+            console.warn("publicMarkers 삭제 실패 (교사):", e);
+          }
           
         } catch (error) {
           console.error("교사 권한 마커 삭제 중 오류:", error);
@@ -1738,10 +1793,17 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
           });
           
           console.log(`Marker ${markerId} deleted from Firestore successfully`);
+          // 공개 컬렉션 삭제
+          try {
+            const publicMarkerRef = doc(db, "lessons", String(lessonId), "publicMarkers", markerId);
+            await deleteDoc(publicMarkerRef);
+          } catch (e) {
+            console.warn("publicMarkers 삭제 실패 (학생):", e);
+          }
         } else {
           // 문서가 존재하지 않는 경우 초기화 시도
           console.log("문서가 존재하지 않아 초기화를 시도합니다.");
-          const targetClassId = markerToDelete.classId || classId;
+          const targetClassId = markerToDelete.classId || activeClassId;
           await setDoc(docRefToUpdate, {
             markers: [],
             shapes: [],
@@ -1786,7 +1848,7 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       type: layerType,
       geojson: geojson,
       userId: currentUser.uid,
-      classId: classId,
+      classId: activeClassId,
       // TODO: Add style options
     };
     // Optimistic update
@@ -2467,6 +2529,7 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
   };
 
   // 학생 조사 자료 팝업 컴포넌트
+  // eslint-disable-next-line no-unused-vars
   const StudentResearchPopup = ({ marker, isEditing, onEdit, onSave, onCancel, onDelete, currentUser, isTeacher }) => {
     const [description, setDescription] = useState(marker.description || '');
     const [title, setTitle] = useState(marker.title || '');
@@ -2857,13 +2920,81 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
     setSelectedFiles(files);
   };
 
+  // 마커 가시성 판정 (차시/역할/반 기준)
+  const isMarkerVisible = useCallback((marker) => {
+    // 1단계(기초배움): 마커 표시 안함
+    if (currentStep === 1) {
+      return false;
+    }
+    // 2단계(가이드활동): 학급 내 마커만 (자기 마커는 항상 표시)
+    if (currentStep === 2) {
+      const isOwn = currentUser && marker.userId === currentUser.uid;
+      if (isOwn) return true;
+      const targetClass = isTeacher() ? (selectedClass === 'all' ? activeClassId : selectedClass) : activeClassId;
+      if (!marker.classId || !targetClass) return true; // classId 없는 예시/초기 데이터 허용
+      return String(marker.classId) === String(targetClass);
+    }
+    // 4단계(함께만들어가는 서울): 모든 학급 마커 표시
+    if (currentStep === 4) {
+      return true;
+    }
+    return false; // 다른 단계는 기본적으로 표시 안함
+  }, [currentStep, isTeacher, currentUser, activeClassId, selectedClass]);
+
+  // 단계별 마지막 마커 스냅샷 저장
+  useEffect(() => {
+    if (!currentStep) return;
+    setLastMarkersByStep(prev => ({ ...prev, [currentStep]: markers }));
+  }, [markers, currentStep]);
+
+  // 세션 스토리지 키 (사용자/레슨/단계/반 기준)
+  const snapshotStorageKey = useMemo(() => {
+    const uid = currentUser?.uid || 'guest';
+    const stepKey = currentStep == null ? 'na' : String(currentStep);
+    const classKey = activeClassId || 'na';
+    return `markers:${uid}:${lessonId}:${stepKey}:${classKey}`;
+  }, [currentUser, lessonId, currentStep, activeClassId]);
+
+  // 마커 변경 시 세션 스토리지에 저장
+  useEffect(() => {
+    try {
+      if (markers && markers.length > 0) {
+        sessionStorage.setItem(snapshotStorageKey, JSON.stringify(markers));
+      }
+    } catch (e) {
+      // ignore storage errors
+    }
+  }, [markers, snapshotStorageKey]);
+
+  // 스텝/반/사용자 변경 시 세션 스토리지에서 복원 (초기 로드용)
+  useEffect(() => {
+    try {
+      if (!markers || markers.length === 0) {
+        const raw = sessionStorage.getItem(snapshotStorageKey);
+        if (raw) {
+          const saved = JSON.parse(raw);
+          if (Array.isArray(saved) && saved.length > 0) {
+            setMarkers(saved);
+          }
+        }
+      }
+    } catch (e) {
+      // ignore parse errors
+    }
+    // run only when key changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapshotStorageKey]);
+
   return (
     <div>
       {/* 디버깅용 정보 표시 */}
       <div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded">
         📍 지도 정보: 레슨 {lessonId} | 중심: [{mapCenter[0]}, {mapCenter[1]}] | 줌: {mapZoom} | 
         범위: {lessonConfig.description} | 줌 제한: {mapMinZoom}~{mapMaxZoom} |
-        초기마커: {lessonData?.initialMarkers?.length || 0}개
+        초기마커: {lessonData?.initialMarkers?.length || 0}개 |
+        총마커: {markers.length}개 |
+        표시마커: {markers.filter(isMarkerVisible).length}개 |
+        단계: {currentStep ?? '-'} | 역할: {userRole} | 반: {activeClassId ?? '-'} {isTeacher() && selectedClass ? `(보기: ${selectedClass})` : ''}
         {lessonId === '1' && <span> | 경기도 도시: {lessonData?.surroundingCities?.length || 0}개</span>}
       </div>
       
@@ -2890,10 +3021,10 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
                 setSelectedStudent('all'); // 반이 바뀌면 학생 선택 초기화
               }}
             >
-              <option value="all">내 담당반 ({classId})</option>
+              <option value="all">내 담당반 ({activeClassId})</option>
               {allClasses.map(cls => (
                 <option key={cls} value={cls}>
-                  {cls} {cls === classId ? '(내 반)' : ''}
+                  {cls} {cls === activeClassId ? '(내 반)' : ''}
                 </option>
               ))}
             </select>
@@ -3193,38 +3324,35 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
             })}
 
             {/* 사용자가 추가한 마커들 (학생 활동) */}
-            {[...new Map(markers.map(marker => [marker.id, marker])).values()]
-              .filter(marker => {
-                // 기초배움 단계(step 1)에서는 학생이 추가한 마커 숨김
-                if (currentStep === 1 && !marker.isInitial) {
-                  // 교사는 모든 마커를 볼 수 있음
-                  if (isTeacher()) return true;
-                  // 학생은 자신과 다른 학생의 마커 모두 숨김
-                  return false;
-                }
-                // 가이드 활동(step 2)과 미션(step 3) 단계에서는 모든 마커 표시
-                return true;
-              })
-              .map((marker) => (
-              marker.position && marker.position.length === 2 && (
-                <Marker 
-                  key={marker.id} 
-                  position={marker.position}
-                  icon={marker.color ? createClassMarkerIcon(marker.color) : undefined}
-                  eventHandlers={{
-                    click: () => handleMarkerClick(marker)
-                  }}
-                >
-                  <Tooltip direction="top" offset={[0, -20]} opacity={0.9}>
-                    {marker.title || '마커 정보 보기'}
-                  </Tooltip>
-                </Marker>
-              )
-            ))}
+            {(() => {
+              const visibleMarkers = markers.filter(isMarkerVisible);
+              log('render', `렌더링 요약 - 총:${markers.length} 표시:${visibleMarkers.length} 단계:${currentStep}`);
+              return visibleMarkers.map((marker, idx) => {
+                const positionArray = Array.isArray(marker.position)
+                  ? marker.position
+                  : (marker.position && typeof marker.position === 'object' && marker.position.lat != null && marker.position.lng != null)
+                    ? [marker.position.lat, marker.position.lng]
+                    : null;
+                const markerKey = marker.userId ? `${marker.id}-${marker.userId}` : `${marker.id}-${idx}`;
+                return positionArray ? (
+                  <Marker 
+                    key={markerKey}
+                    position={positionArray}
+                    {...(marker.color ? { icon: createClassMarkerIcon(marker.color) } : {})}
+                    eventHandlers={{ click: () => handleMarkerClick(marker) }}
+                  >
+                    <Tooltip direction="top" offset={[0, -20]} opacity={0.9}>
+                      {marker.title || '마커 정보 보기'}
+                    </Tooltip>
+                  </Marker>
+                ) : null;
+              });
+            })()}
 
             {/* 서울시 경계 - 모든 레슨에서 표시 */}
             <Polygon
               positions={ADMINISTRATIVE_BOUNDARIES.seoul.coordinates}
+              interactive={false}
               pathOptions={{
                 ...ADMINISTRATIVE_BOUNDARIES.seoul.style,
                 fillOpacity: lessonId === '1' ? 0.15 : 0 // 1차시에서만 내부 색깔 표시
@@ -3597,6 +3725,19 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
                     (LESSON_MARKER_PROMPTS[lessonId] || '이 위치에 대한 설명을 작성해주세요') :
                     '이 위치에 대한 설명을 작성해주세요'
                   }
+                  onFocus={(e) => {
+                    // 가짜글씨: placeholder처럼 보이던 안내문구는 클릭 시 지움
+                    if (!newMarkerDescription) {
+                      e.currentTarget.placeholder = '';
+                    }
+                  }}
+                  onBlur={(e) => {
+                    if (!newMarkerDescription) {
+                      e.currentTarget.placeholder = isStudent() ?
+                        (LESSON_MARKER_PROMPTS[lessonId] || '이 위치에 대한 설명을 작성해주세요') :
+                        '이 위치에 대한 설명을 작성해주세요';
+                    }
+                  }}
                   className="w-full border border-gray-300 rounded px-3 py-2 h-24 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                 />
               </div>

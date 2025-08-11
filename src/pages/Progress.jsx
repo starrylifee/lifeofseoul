@@ -31,14 +31,21 @@ const Progress = () => {
     { id: '8', title: '8차시: 한양도성의 성곽과 대문', icon: '🏰' },
   ]), []);
 
-  useEffect(() => {
-    if (!isStudent() || !currentUser) {
-      setLoading(false);
-      return;
-    }
-
-    fetchPersonalProgress();
-  }, [currentUser, classId, isStudent, fetchPersonalProgress]);
+  // 레슨별 총 문항 수 로드 유틸
+  const loadLessonTotals = useCallback(async (lessons) => {
+    const entries = await Promise.all(
+      lessons.map(async (lesson) => {
+        try {
+          const mod = await import(`../lessons/lesson${lesson.id}/config.js`);
+          const count = Array.isArray(mod.default?.questions) ? mod.default.questions.length : 8;
+          return [lesson.id, count];
+        } catch (e) {
+          return [lesson.id, 8];
+        }
+      })
+    );
+    return Object.fromEntries(entries);
+  }, []);
 
   const fetchPersonalProgress = useCallback(async () => {
     try {
@@ -49,6 +56,7 @@ const Progress = () => {
       let completedCount = 0;
       let totalMarkers = 0;
       const allMarkers = [];
+      const totalMap = await loadLessonTotals(lessonList);
 
       for (const lesson of lessonList) {
         try {
@@ -58,6 +66,7 @@ const Progress = () => {
           let completionRate = 0;
           let markerCount = 0;
           let questionsCompleted = 0;
+          let totalQuestionsForLesson = totalMap[lesson.id] || 8;
           
           if (activityDoc.exists()) {
             const data = activityDoc.data();
@@ -75,12 +84,12 @@ const Progress = () => {
               });
             });
             
-            const totalQuestions = 8;
-            completionRate = Math.round((questionsCompleted / totalQuestions) * 100);
+            totalQuestionsForLesson = data.totalQuestions || totalMap[lesson.id] || 8;
+            completionRate = Math.round((questionsCompleted / totalQuestionsForLesson) * 100);
             
             if (questionsCompleted === 0) {
               status = 'in_progress';
-            } else if (questionsCompleted === totalQuestions) {
+            } else if (questionsCompleted === totalQuestionsForLesson) {
               status = 'completed';
               completedCount++;
             } else {
@@ -95,6 +104,7 @@ const Progress = () => {
             status,
             completionRate,
             questionsCompleted,
+            totalQuestions: totalQuestionsForLesson,
             markerCount
           });
         } catch (error) {
@@ -159,7 +169,16 @@ const Progress = () => {
     } finally {
       setLoading(false);
     }
-  }, [lessonList, currentUser, classId]);
+  }, [lessonList, currentUser, classId, loadLessonTotals]);
+
+  useEffect(() => {
+    if (!isStudent() || !currentUser) {
+      setLoading(false);
+      return;
+    }
+
+    fetchPersonalProgress();
+  }, [currentUser, classId, isStudent, fetchPersonalProgress]);
 
   // 상태별 스타일 및 텍스트 반환
   const getStatusInfo = (status, completionRate) => {
@@ -255,7 +274,7 @@ const Progress = () => {
               <div className="text-center p-4 bg-green-50 rounded-xl">
                 <div className="text-2xl mb-1">✅</div>
                 <div className="text-sm text-gray-600 font-korean">완료한 수업</div>
-                <div className="text-xl font-bold text-green-600">{personalStats.completedLessons}/8개</div>
+                 <div className="text-xl font-bold text-green-600">{personalStats.completedLessons}/{lessonList.length}개</div>
               </div>
               
               <div className="text-center p-4 bg-blue-50 rounded-xl">
@@ -307,7 +326,7 @@ const Progress = () => {
                       </div>
                     )}
                     <div className="text-xs text-gray-500 font-korean">
-                      문제: {lesson.questionsCompleted}/8개<br/>
+                      문제: {lesson.questionsCompleted}/{lesson.totalQuestions || 8}개<br/>
                       마커: {lesson.markerCount}개
                     </div>
                   </div>

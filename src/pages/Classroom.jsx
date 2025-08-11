@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom';
 
 const Classroom = () => {
   const [lessons, setLessons] = useState([]);
+  const [overall, setOverall] = useState({ completed: 0, total: 0 });
 
   useEffect(() => {
-    // 8개 레슨 데이터 로드
+    // 레슨 데이터 로드
     const loadLessons = async () => {
       const lessonData = [];
       for (let i = 1; i <= 8; i++) {
@@ -20,6 +21,9 @@ const Classroom = () => {
         }
       }
       setLessons(lessonData);
+
+      // 진행바용 총 레슨 수 설정
+      setOverall((prev) => ({ ...prev, total: lessonData.length }));
     };
 
     loadLessons();
@@ -71,12 +75,12 @@ const Classroom = () => {
             </h2>
             <div className="bg-seoul-50 rounded-xl px-4 py-2">
               <span className="text-seoul-600 font-medium text-sm md:text-base font-korean">
-                0/8 완료
+                {overall.completed}/{overall.total} 완료
               </span>
             </div>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-3 md:h-4">
-            <div className="bg-gradient-to-r from-seoul-400 to-hangang-400 h-3 md:h-4 rounded-full transition-all duration-500" style={{width: '0%'}}></div>
+            <div className="bg-gradient-to-r from-seoul-400 to-hangang-400 h-3 md:h-4 rounded-full transition-all duration-500" style={{width: `${overall.total ? (overall.completed / overall.total) * 100 : 0}%`}}></div>
           </div>
           <p className="text-sm text-gray-600 mt-2 font-korean">
             🎯 목표: 모든 수업을 완료하고 서울 전문가가 되어보세요!
