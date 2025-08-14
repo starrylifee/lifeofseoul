@@ -341,7 +341,7 @@ const Dashboard = () => {
             </div>
           </Link>
 
-          {isStudent() ? (
+          {isStudent() && (
             <Link to="/progress" className="group bg-white rounded-3xl p-6 md:p-8 shadow-soft hover:shadow-friendly transition-all duration-300 hover:scale-105 border-2 border-hangang-100 hover:border-hangang-200">
               <div className="text-center">
                 <div className="bg-gradient-to-br from-hangang-400 to-hangang-600 rounded-2xl p-4 md:p-6 mb-4 inline-block"><span className="text-4xl md:text-5xl">📊</span></div>
@@ -353,16 +353,17 @@ const Dashboard = () => {
                 </div>
               </div>
             </Link>
-          ) : (
-            <Link to="/settings" className="group bg-white rounded-3xl p-6 md:p-8 shadow-soft hover:shadow-friendly transition-all duration-300 hover:scale-105 border-2 border-gray-100 hover:border-gray-200">
-              <div className="text-center">
-                <div className="bg-gradient-to-br from-gray-400 to-gray-600 rounded-2xl p-4 md:p-6 mb-4 inline-block"><span className="text-4xl md:text-5xl">⚙️</span></div>
-                <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-2 font-korean">설정</h3>
-                <p className="text-gray-600 text-sm md:text-base font-korean">계정 정보와 앱 설정을 변경할 수 있어요</p>
-                <div className="mt-4 bg-gray-50 rounded-xl p-3"><span className="text-gray-600 font-medium text-sm font-korean">🔧 개인 설정 관리</span></div>
-              </div>
-            </Link>
           )}
+
+          {/* 설정 카드 - 모든 사용자에게 표시 */}
+          <Link to="/settings" className="group bg-white rounded-3xl p-6 md:p-8 shadow-soft hover:shadow-friendly transition-all duration-300 hover:scale-105 border-2 border-gray-100 hover:border-gray-200">
+            <div className="text-center">
+              <div className="bg-gradient-to-br from-gray-400 to-gray-600 rounded-2xl p-4 md:p-6 mb-4 inline-block"><span className="text-4xl md:text-5xl">⚙️</span></div>
+              <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-2 font-korean">설정</h3>
+              <p className="text-gray-600 text-sm md:text-base font-korean">계정 정보와 앱 설정을 변경할 수 있어요</p>
+              <div className="mt-4 bg-gray-50 rounded-xl p-3"><span className="text-gray-600 font-medium text-sm font-korean">🔧 개인 설정 관리</span></div>
+            </div>
+          </Link>
 
           {isStudent() && (
             <>
