@@ -374,7 +374,7 @@ const Settings = () => {
             disabled={loading}
             className="bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold py-4 px-6 rounded-xl hover:from-blue-600 hover:to-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 font-korean"
           >
-            🔁 역할 재설정 (모달 다시 띄우기)
+            🔁 역할 재설정
           </button>
 
           <button

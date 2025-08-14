@@ -40,8 +40,8 @@ const lesson1Config = {
       },
       {
         id: 'mission2', 
-        title: '경기도 도시 3곳 찾기',
-        description: '서울 주변 경기도 도시 3곳을 찾아 마커로 표시하고, 서울에서 어느 방향에 있는지 적어보세요.',
+        title: '경기도 도시 1곳 선택',
+        description: '서울 주변 경기도 도시 중 1곳을 선택하여 마커로 표시하고, 서울에서 어느 방향에 있는지 적어보세요.',
         requiredImages: 0,
         example: '예시: 수원시는 서울의 남쪽에 있습니다.'
       }

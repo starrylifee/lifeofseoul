@@ -13,7 +13,7 @@ function ClassPetCard({ xp, level, nextLevelXp, unlockedLessons }) {
 
   return (
     <div className="bg-white rounded-3xl p-6 shadow-soft mb-8">
-      <h2 className="text-2xl font-bold text-gray-800 mb-4 font-korean">🟡 반 해치</h2>
+      <h2 className="text-2xl font-bold text-gray-800 mb-4 font-korean">🟡 우리반 캐릭터</h2>
       <div className="flex flex-col lg:flex-row gap-6 items-center">
         {/* 이미지 영역 */}
         <div className="relative w-[512px] h-[512px] shrink-0">
@@ -42,11 +42,11 @@ function ClassPetCard({ xp, level, nextLevelXp, unlockedLessons }) {
           </div>
 
           <div className="mt-6">
-            <div className="text-sm text-gray-600 mb-2 font-korean">차시 해금 현황</div>
+            <div className="text-sm text-gray-600 mb-2 font-korean">차시 달성 현황</div>
             <div className="grid grid-cols-4 gap-2">
               {overlays.map((ov) => (
                 <div key={ov.idx} className={`text-center text-xs px-2 py-1 rounded ${ov.unlocked ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'}`}>
-                  {ov.unlocked ? `레슨 ${ov.idx} 해금` : `레슨 ${ov.idx}`}
+                  {ov.unlocked ? `레슨 ${ov.idx} 달성` : `레슨 ${ov.idx}`}
                 </div>
               ))}
             </div>

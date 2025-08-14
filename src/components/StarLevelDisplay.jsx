@@ -91,17 +91,22 @@ const StarLevelDisplay = ({ userId, compact = false }) => {
         )}
       </div>
 
-      {/* 보상 목록 */}
+      {/* 보상 목록 (구현 예정) */}
       <div className="mt-4 pt-4 border-t border-yellow-200">
-        <h4 className="text-sm font-medium text-gray-700 mb-2">🎁 레벨 혜택</h4>
-        <div className="space-y-1">
-          {currentLevel.rewards.map((reward, index) => (
-            <div key={index} className="text-xs text-gray-600 flex items-center">
-              <span className="text-green-500 mr-1">✓</span>
-              {reward}
+        <div className="text-xs text-gray-500 text-center">구현 예정</div>
+        {false && (
+          <>
+            <h4 className="text-sm font-medium text-gray-700 mb-2">🎁 레벨 혜택</h4>
+            <div className="space-y-1">
+              {currentLevel.rewards.map((reward, index) => (
+                <div key={index} className="text-xs text-gray-600 flex items-center">
+                  <span className="text-green-500 mr-1">✓</span>
+                  {reward}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </>
+        )}
       </div>
     </div>
   );

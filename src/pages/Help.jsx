@@ -140,7 +140,7 @@ const Help = () => {
                 <div>
                   <h3 className="font-bold text-gray-800 font-korean">인터랙티브 지도</h3>
                   <p className="text-sm text-gray-600 font-korean">
-                    실제 서울 지도에서 마커를 생성하고 친구들과 공유할 수 있습니다. 
+                    실제 서울 지도에서 마커를 생성하며 학급과 함께 학습할 수 있습니다.
                     각 레슨마다 다른 테마의 지도가 제공됩니다.
                   </p>
                 </div>
@@ -186,8 +186,8 @@ const Help = () => {
                 <div>
                   <h3 className="font-bold text-gray-800 font-korean">협력 학습</h3>
                   <p className="text-sm text-gray-600 font-korean">
-                    같은 반 친구들과 실시간으로 마커를 공유하고, 
-                    댓글과 좋아요로 소통할 수 있습니다.
+                    같은 반 친구들과 활동을 함께 진행할 수 있습니다. 
+                    (친구들과 공유 기능은 추후 업데이트 예정)
                   </p>
                 </div>
               </div>
@@ -238,25 +238,11 @@ const Help = () => {
 
         {/* 문의 및 지원 */}
         <div className="bg-white rounded-3xl p-6 shadow-soft">
-          <h2 className="text-2xl font-bold text-gray-800 mb-6 font-korean">📞 문의 및 지원</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="p-4 bg-blue-50 rounded-xl">
-              <h3 className="font-bold text-gray-800 mb-3 font-korean">🏫 교육청 문의</h3>
-              <div className="space-y-2 text-sm text-gray-600">
-                <p><strong>전화:</strong> 02-123-4567</p>
-                <p><strong>이메일:</strong> lifeofseoul@sen.go.kr</p>
-                <p><strong>운영시간:</strong> 평일 09:00 - 18:00</p>
-              </div>
-            </div>
-            
-            <div className="p-4 bg-green-50 rounded-xl">
-              <h3 className="font-bold text-gray-800 mb-3 font-korean">💻 기술 지원</h3>
-              <div className="space-y-2 text-sm text-gray-600">
-                <p><strong>온라인 신고:</strong> support.lifeofseoul.kr</p>
-                <p><strong>카카오톡:</strong> @lifeofseoul</p>
-                <p><strong>응답시간:</strong> 평균 24시간 이내</p>
-              </div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-6 font-korean">💻 기술 지원</h2>
+          <div className="p-4 bg-green-50 rounded-xl">
+            <div className="space-y-2 text-sm text-gray-600">
+              <p><strong>이메일:</strong> forinnocen@sen.go.kr</p>
+              <p className="text-xs text-gray-500">문의는 이메일로만 받습니다.</p>
             </div>
           </div>
           

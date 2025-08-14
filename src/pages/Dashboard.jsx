@@ -312,9 +312,9 @@ const Dashboard = () => {
                   <div className="bg-gradient-to-br from-sunshine-400 to-sunshine-600 rounded-2xl p-4 md:p-6 mb-4 inline-block">
                     <span className="text-4xl md:text-5xl">🗺️</span>
                   </div>
-                  <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-2 font-korean">마커 관리</h3>
-                  <p className="text-gray-600 text-sm md:text-base font-korean">학생들이 만든 마커를 확인하고 관리하세요</p>
-                  <div className="mt-4 bg-sunshine-50 rounded-xl p-3"><span className="text-sunshine-600 font-medium text-sm font-korean">📍 학급 마커 모니터링</span></div>
+                  <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-2 font-korean">서울 탐험하기</h3>
+                  <p className="text-gray-600 text-sm md:text-base font-korean">서울 지도에서 자유롭게 탐험해보세요</p>
+                  <div className="mt-4 bg-sunshine-50 rounded-xl p-3"><span className="text-sunshine-600 font-medium text-sm font-korean">🧭 서울+경기도 범위 지도</span></div>
                 </div>
               </Link>
             </>
@@ -370,18 +370,11 @@ const Dashboard = () => {
                 <div className="text-center">
                   <div className="bg-gradient-to-br from-sunshine-400 to-sunshine-600 rounded-2xl p-4 md:p-6 mb-4 inline-block"><span className="text-4xl md:text-5xl">🗺️</span></div>
                   <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-2 font-korean">서울 탐험하기</h3>
-                  <p className="text-gray-600 text-sm md:text-base font-korean">지도에서 서울의 다양한 모습을 발견해보세요</p>
-                  <div className="mt-4 bg-sunshine-50 rounded-xl p-3"><span className="text-sunshine-600 font-medium text-sm font-korean">🏛️ 궁궐, 🏞️ 공원, 🌉 한강 등</span></div>
+                  <p className="text-gray-600 text-sm md:text-base font-korean">서울+경기도 범위의 기본 지도를 확인해보세요</p>
+                  <div className="mt-4 bg-sunshine-50 rounded-xl p-3"><span className="text-sunshine-600 font-medium text-sm font-korean">서울 경계선(레슨1과 동일) 표시</span></div>
                 </div>
               </Link>
-              <Link to="/share" className="group bg-white rounded-3xl p-6 md:p-8 shadow-soft hover:shadow-friendly transition-all duration-300 hover:scale-105 border-2 border-purple-100 hover:border-purple-200">
-                <div className="text-center">
-                  <div className="bg-gradient-to-br from-purple-400 to-purple-600 rounded-2xl p-4 md:p-6 mb-4 inline-block"><span className="text-4xl md:text-5xl">👥</span></div>
-                  <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-2 font-korean">친구들과 공유</h3>
-                  <p className="text-gray-600 text-sm md:text-base font-korean">내가 만든 지도를 친구들과 나눠보세요</p>
-                  <div className="mt-4 bg-purple-50 rounded-xl p-3"><span className="text-purple-600 font-medium text-sm font-korean">💬 학급 공유 보기</span></div>
-                </div>
-              </Link>
+              {/* 친구들과 공유 항목 제거 */}
             </>
           )}
 

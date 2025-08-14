@@ -10,6 +10,7 @@ import InviteCodeModal from './components/InviteCodeModal';
 import Dashboard from './pages/Dashboard';
 import Classroom from './pages/Classroom';
 import LessonPage from './pages/LessonPage';
+import Explore from './pages/Explore';
 import ShareView from './pages/ShareView';
 import LoginPage from './pages/Login';
 import AdminPanel from './pages/AdminPanel';
@@ -46,7 +47,7 @@ function App() {
             <Route path="/share" element={<ProtectedRoute><ShareView /></ProtectedRoute>} />
             <Route path="/teacher-progress" element={<ProtectedRoute><TeacherProgress /></ProtectedRoute>} />
             <Route path="/progress" element={<ProtectedRoute><Progress /></ProtectedRoute>} />
-            <Route path="/explore" element={<ProtectedRoute><LessonPage lessonId="1" /></ProtectedRoute>} />
+            <Route path="/explore" element={<ProtectedRoute><Explore /></ProtectedRoute>} />
             <Route path="/help" element={<ProtectedRoute><Help /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to={isLoggedIn ? "/" : "/login"} replace />} />

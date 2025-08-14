@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { updateLessonProgress } from '../utils/api';
 import { LESSON_STEPS } from '../utils/constants';
@@ -6,6 +7,7 @@ import '../assets/styles/map.css';
 
 function ActivityTemplate({ lessonConfig, children, lessonId, activityData, onStepChange }) {
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(LESSON_STEPS.INTRO);
   const [stepProgress, setStepProgress] = useState({});
   const [isLoading, setIsLoading] = useState(false);
@@ -69,13 +71,15 @@ function ActivityTemplate({ lessonConfig, children, lessonId, activityData, onSt
         [`step${stepIndex}`]: true
       }));
       
-      // 다음 단계로 이동
+      // 다음 단계로 이동 (마지막 단계면 대시보드로 이동)
       if (stepIndex < steps.length - 1) {
         const nextStep = stepIndex + 1;
         setCurrentStep(nextStep);
         if (onStepChange) {
           onStepChange(nextStep);
         }
+      } else {
+        navigate('/');
       }
     } catch (err) {
       console.error("Error updating progress:", err);

@@ -65,7 +65,7 @@ const LESSON_MARKER_PROMPTS = {
 };
 
 // 행정구역 경계 데이터 (레슨 1용)
-const ADMINISTRATIVE_BOUNDARIES = {
+export const ADMINISTRATIVE_BOUNDARIES = {
   seoul: {
     // 사용자 제공 매우 상세한 서울시 경계 좌표 (300+ 점)
     coordinates: [

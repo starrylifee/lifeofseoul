@@ -40,8 +40,8 @@ const lesson2Config = {
       },
       {
         id: 'mission2',
-        title: '한강 다리 3개 찾기',
-        description: '한강에 있는 다리 3개를 찾아 마커로 표시하고, 각 다리의 특징이나 연결하는 지역을 적어보세요.',
+        title: '한강 다리 1개 찾기',
+        description: '한강에 있는 다리 중 1개를 선택해 마커로 표시하고, 그 다리의 특징이나 연결하는 지역을 적어보세요.',
         requiredImages: 0,
         example: '예시: 한강대교는 용산구와 영등포구를 연결합니다.'
       }

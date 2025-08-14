@@ -140,8 +140,8 @@ const Progress = () => {
       // 별 히스토리 가져오기 (최근 10개)
       try {
         const starHistoryQuery = query(
-          collection(db, "stars"),
-          where("studentId", "==", currentUser.uid),
+          collection(db, "starHistory"),
+          where("userId", "==", currentUser.uid),
           orderBy("timestamp", "desc")
         );
         
@@ -343,10 +343,10 @@ const Progress = () => {
             <div className="space-y-4">
               {starHistory.length > 0 ? (
                 starHistory.map((star) => (
-                  <div key={star.id} className="flex items-center space-x-4 p-3 bg-yellow-50 rounded-xl">
+                <div key={star.id} className="flex items-center space-x-4 p-3 bg-yellow-50 rounded-xl">
                     <div className="text-2xl">⭐</div>
                     <div className="flex-1">
-                      <div className="font-medium text-gray-800 font-korean">{star.reason}</div>
+                    <div className="font-medium text-gray-800 font-korean">{star.reason || star.description}</div>
                       <div className="text-sm text-gray-600">{formatDate(star.timestamp)}</div>
                     </div>
                     <div className="text-lg font-bold text-yellow-600">+{star.amount}</div>
