@@ -6,7 +6,7 @@ import { deleteUser, reauthenticateWithPopup } from 'firebase/auth';
 import { doc, deleteDoc, updateDoc, collection, query, where, getDocs, setDoc, serverTimestamp } from 'firebase/firestore';
 
 const Settings = () => {
-  const { currentUser, userId, classId, studentNumber, isTeacher, isStudent, logout } = useAuth();
+  const { currentUser, userId, classId, studentNumber, isTeacher, isStudent, logout, userRole } = useAuth();
   const [loading, setLoading] = useState(false);
   const [inviteCodes, setInviteCodes] = useState([]);
   const [editingClassId, setEditingClassId] = useState(false);
@@ -83,6 +83,7 @@ const Settings = () => {
         await setDoc(ref, {
           teacherId: currentUser.uid,
           teacherEmail: currentUser.email,
+          classId: classId || null, // 현재 교사의 classId 포함
           createdAt: serverTimestamp()
         });
         await loadMyInviteCodes();

@@ -40,6 +40,7 @@ export function AuthProvider({ children }) {
         await setDoc(codeRef, {
           teacherId: teacherUid,
           teacherEmail,
+          classId: null, // 초기에는 null, 교사가 나중에 설정
           createdAt: new Date(),
           // 다회 사용 가능 코드이므로 used 플래그는 의미 없음
         });
@@ -252,6 +253,23 @@ export function AuthProvider({ children }) {
     setShowRoleSetup(false);
   };
 
+  // 학생 목록 캐시 무효화 함수
+  const invalidateStudentsCache = (targetClassId) => {
+    if (targetClassId) {
+      setCachedStudents(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(targetClassId);
+        return newMap;
+      });
+      setLastCacheTime(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(targetClassId);
+        return newMap;
+      });
+      console.log(`학생 목록 캐시 무효화: ${targetClassId}`);
+    }
+  };
+
   // 초대코드 필요 여부: 학생인데 teacherId가 없으면 강제
   const requireInviteCode = isStudent() && !teacherId;
 
@@ -272,6 +290,7 @@ export function AuthProvider({ children }) {
     fetchClassStudents,
     fetchClassTeacher,
     handleRoleSet,
+    invalidateStudentsCache,
     firebaseError,
     requireInviteCode
   };

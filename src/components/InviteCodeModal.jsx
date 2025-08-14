@@ -4,7 +4,7 @@ import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 
 function InviteCodeModal() {
-  const { currentUser } = useAuth();
+  const { currentUser, invalidateStudentsCache } = useAuth();
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -20,6 +20,19 @@ function InviteCodeModal() {
         return;
       }
       const data = codeSnap.data();
+      console.log('초대코드 데이터:', data);
+      
+      // classId가 없는 경우 경고
+      if (!data.classId) {
+        alert(
+          '⚠️ 초대코드 설정 미완료\n\n' +
+          '교사가 아직 학급 ID를 설정하지 않았습니다.\n' +
+          '교사에게 설정 페이지에서 학급 ID를 설정하도록 요청해주세요.'
+        );
+        setLoading(false);
+        return;
+      }
+      
       // 다회 사용 가능 코드: used 체크/업데이트 없음
       // 사용자 문서 업데이트: teacherId, classId, status
       const userRef = doc(db, 'users', currentUser.uid);
@@ -30,6 +43,13 @@ function InviteCodeModal() {
         approvedBy: data.teacherId || null,
         updatedAt: new Date()
       });
+      
+      // 교사의 학생 목록 캐시 무효화 (새 학생이 추가되었으므로)
+      if (data.classId && invalidateStudentsCache) {
+        invalidateStudentsCache(data.classId);
+      }
+      
+      console.log(`학생이 학급에 연결됨: classId=${data.classId}, teacherId=${data.teacherId}`);
       window.location.reload();
     } catch (e) {
       console.error('초대코드 처리 오류:', e);

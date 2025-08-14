@@ -46,10 +46,10 @@ function LoginPage() {
       const email = user.email;
 
       // 기존 사용자 문서 확인 (탈퇴 후 재가입 감지)
-      const userDocRef = doc(db, "users", user.uid);
-      const userDoc = await getDoc(userDocRef);
+      const googleUserDocRef = doc(db, "users", user.uid);
+      const googleUserDoc = await getDoc(googleUserDocRef);
       
-      if (!userDoc.exists()) {
+      if (!googleUserDoc.exists()) {
         // 삭제된 계정 기록 확인
         const deletedAccountRef = doc(db, 'deletedAccounts', user.uid);
         const deletedAccountDoc = await getDoc(deletedAccountRef);
@@ -75,7 +75,7 @@ function LoginPage() {
         }
         
         // 기본 사용자 문서 생성
-        await setDoc(userDocRef, {
+        await setDoc(googleUserDocRef, {
           email: user.email,
           role: 'needs_setup',
           status: 'approved',
