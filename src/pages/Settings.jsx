@@ -9,6 +9,8 @@ const Settings = () => {
   const { currentUser, userId, classId, studentNumber, isTeacher, isStudent, logout } = useAuth();
   const [loading, setLoading] = useState(false);
   const [inviteCodes, setInviteCodes] = useState([]);
+  const [editingClassId, setEditingClassId] = useState(false);
+  const [newClassId, setNewClassId] = useState(classId || '');
   const navigate = useNavigate();
 
   const loadMyInviteCodes = async () => {
@@ -29,7 +31,45 @@ const Settings = () => {
     }
   };
 
-  useEffect(() => { loadMyInviteCodes(); }, [currentUser]);
+  useEffect(() => { 
+    loadMyInviteCodes(); 
+    setNewClassId(classId || '');
+  }, [currentUser, classId]);
+
+  // 교사 학급 ID 업데이트 함수
+  const handleUpdateClassId = async () => {
+    if (!isTeacher() || !newClassId.trim()) {
+      alert('학급 ID를 입력해주세요.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const userRef = doc(db, 'users', currentUser.uid);
+      await updateDoc(userRef, {
+        classId: newClassId.trim(),
+        updatedAt: serverTimestamp()
+      });
+      
+      // 초대코드에도 classId 업데이트
+      if (inviteCodes.length > 0) {
+        const codeRef = doc(db, 'inviteCodes', inviteCodes[0].code);
+        await updateDoc(codeRef, {
+          classId: newClassId.trim(),
+          updatedAt: serverTimestamp()
+        });
+      }
+      
+      alert('학급 ID가 성공적으로 업데이트되었습니다!');
+      setEditingClassId(false);
+      window.location.reload(); // 컨텍스트 새로고침을 위해
+    } catch (error) {
+      console.error('학급 ID 업데이트 오류:', error);
+      alert('학급 ID 업데이트 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleGenerateSingleCodeIfNone = async () => {
     if (!isTeacher()) return;
@@ -72,25 +112,174 @@ const Settings = () => {
   };
 
   const handleDeleteAccount = async () => {
-    const first = window.confirm('정말 회원탈퇴 하시겠습니까? 이 작업은 되돌릴 수 없습니다.');
+    const first = window.confirm(
+      '⚠️ 회원탈퇴 확인\n\n' +
+      '삭제될 데이터:\n' +
+      '• 계정 정보 (이메일, 프로필)\n' +
+      '• 학습 진도 및 별 데이터\n' +
+      '• 생성한 마커와 댓글\n' +
+      (isTeacher() ? '• 초대코드 및 학급 관리 권한\n' : '') +
+      '\n정말 탈퇴하시겠습니까?'
+    );
     if (!first) return;
-    const second = window.confirm('확인: 계정, 사용자 데이터(일부)가 삭제됩니다. 계속하시겠습니까?');
+    
+    const second = window.confirm(
+      '최종 확인: 이 작업은 되돌릴 수 없습니다.\n' +
+      '계정과 모든 관련 데이터가 영구적으로 삭제됩니다.\n\n' +
+      '계속하시겠습니까?'
+    );
     if (!second) return;
 
     setLoading(true);
     try {
+      // 재인증 필요
       await reauthenticateWithPopup(auth.currentUser, googleProvider);
       const uid = auth.currentUser.uid;
-      await Promise.all([
+      
+      // 삭제할 데이터 목록
+      const deletePromises = [
         deleteDoc(doc(db, 'users', uid)).catch(() => {}),
         deleteDoc(doc(db, 'stars', uid)).catch(() => {})
-      ]);
+      ];
+
+      // 교사인 경우 추가 데이터 삭제
+      if (isTeacher()) {
+        // 초대코드 삭제
+        const inviteCodesQuery = query(
+          collection(db, 'inviteCodes'),
+          where('teacherId', '==', uid)
+        );
+        const inviteCodesSnapshot = await getDocs(inviteCodesQuery);
+        inviteCodesSnapshot.docs.forEach(doc => {
+          deletePromises.push(deleteDoc(doc.ref).catch(() => {}));
+        });
+
+        // 학급 펫 데이터 삭제 (해당 교사의 학급)
+        if (classId) {
+          deletePromises.push(
+            deleteDoc(doc(db, 'classPets', classId)).catch(() => {})
+          );
+        }
+      }
+
+      // 모든 레슨에서 사용자 데이터 삭제 (1~8차시)
+      for (let lessonId = 1; lessonId <= 8; lessonId++) {
+        if (classId) {
+          deletePromises.push(
+            deleteDoc(doc(db, 'lessons', String(lessonId), 'classActivities', classId, 'students', uid)).catch(() => {})
+          );
+        }
+      }
+
+      // 모든 삭제 작업 실행
+      await Promise.all(deletePromises);
+      
+      // Firebase Auth 계정 삭제
       await deleteUser(auth.currentUser);
-      alert('회원탈퇴가 완료되었습니다. 이용해 주셔서 감사합니다.');
+      
+      alert('✅ 회원탈퇴가 완료되었습니다.\n그동안 Life of Seoul을 이용해 주셔서 감사합니다.');
       navigate('/login');
     } catch (error) {
       console.error('회원탈퇴 실패:', error);
-      alert('회원탈퇴 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+      if (error.code === 'auth/requires-recent-login') {
+        alert('보안을 위해 재로그인이 필요합니다. 다시 로그인 후 시도해주세요.');
+      } else {
+        alert('회원탈퇴 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 교사용 수업내용 리셋 함수
+  const handleResetClassData = async () => {
+    if (!isTeacher() || !classId) {
+      alert('교사 권한이 필요하고 학급 ID가 설정되어야 합니다.');
+      return;
+    }
+
+    const confirmFirst = window.confirm(
+      '⚠️ 경고: 이 작업은 연결된 모든 학생의 데이터를 초기화합니다.\n\n' +
+      '삭제될 데이터:\n' +
+      '• 모든 레슨의 마커와 댓글\n' +
+      '• 학습 진도율과 완료 상태\n' +
+      '• 획득한 별과 펫 레벨\n' +
+      '• 학급 통계 데이터\n\n' +
+      '정말 계속하시겠습니까?'
+    );
+    
+    if (!confirmFirst) return;
+
+    const confirmSecond = window.confirm(
+      '최종 확인: 이 작업은 되돌릴 수 없습니다.\n' +
+      `학급 "${classId}"의 모든 수업 데이터를 삭제하시겠습니까?`
+    );
+    
+    if (!confirmSecond) return;
+
+    setLoading(true);
+    try {
+      // 1. 해당 학급의 모든 학생 조회
+      const studentsQuery = query(
+        collection(db, 'users'),
+        where('classId', '==', classId),
+        where('role', '==', 'student')
+      );
+      const studentsSnapshot = await getDocs(studentsQuery);
+      const studentIds = studentsSnapshot.docs.map(doc => doc.id);
+
+      console.log(`${studentIds.length}명의 학생 데이터를 초기화합니다.`);
+
+      // 2. 각 학생의 데이터 초기화
+      const deletePromises = [];
+
+      // 2-1. 별 데이터 삭제
+      studentIds.forEach(studentId => {
+        deletePromises.push(
+          deleteDoc(doc(db, 'stars', studentId)).catch(() => {})
+        );
+      });
+
+      // 2-2. 모든 레슨의 학급 활동 데이터 삭제 (1~8차시)
+      for (let lessonId = 1; lessonId <= 8; lessonId++) {
+        // 학급 전체 데이터 삭제
+        deletePromises.push(
+          deleteDoc(doc(db, 'lessons', String(lessonId), 'classActivities', classId)).catch(() => {})
+        );
+        
+        // 각 학생별 데이터 삭제
+        studentIds.forEach(studentId => {
+          deletePromises.push(
+            deleteDoc(doc(db, 'lessons', String(lessonId), 'classActivities', classId, 'students', studentId)).catch(() => {})
+          );
+        });
+      }
+
+      // 2-3. 학급 펫 데이터 삭제
+      deletePromises.push(
+        deleteDoc(doc(db, 'classPets', classId)).catch(() => {})
+      );
+
+      // 2-4. 학생들의 진도 데이터 초기화 (users 컬렉션은 유지하되 진도 관련 필드만 초기화)
+      studentIds.forEach(studentId => {
+        deletePromises.push(
+          updateDoc(doc(db, 'users', studentId), {
+            lessonProgress: {},
+            totalStars: 0,
+            lastLessonCompleted: 0,
+            updatedAt: serverTimestamp()
+          }).catch(() => {})
+        );
+      });
+
+      // 모든 삭제 작업 실행
+      await Promise.all(deletePromises);
+
+      alert(`✅ 수업내용 리셋이 완료되었습니다.\n${studentIds.length}명의 학생 데이터가 초기화되었습니다.`);
+      
+    } catch (error) {
+      console.error('수업내용 리셋 오류:', error);
+      alert('수업내용 리셋 중 오류가 발생했습니다. 일부 데이터가 삭제되지 않았을 수 있습니다.');
     } finally {
       setLoading(false);
     }
@@ -187,7 +376,54 @@ const Settings = () => {
             <div className="space-y-4">
               <div className="p-4 bg-gray-50 rounded-xl">
                 <label className="block text-sm font-medium text-gray-700 mb-2 font-korean">학급</label>
-                <div className="text-lg font-medium text-gray-800">{classId || 'N/A'}</div>
+                {isTeacher() && editingClassId ? (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={newClassId}
+                      onChange={(e) => setNewClassId(e.target.value)}
+                      placeholder="예: 4학년5반, 중1-3, 고2-A 등"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={handleUpdateClassId}
+                        disabled={loading}
+                        className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 disabled:bg-gray-400"
+                      >
+                        저장
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingClassId(false);
+                          setNewClassId(classId || '');
+                        }}
+                        className="px-3 py-1 bg-gray-500 text-white text-sm rounded hover:bg-gray-600"
+                      >
+                        취소
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div className="text-lg font-medium text-gray-800">
+                      {classId || (isTeacher() ? '미설정' : 'N/A')}
+                    </div>
+                    {isTeacher() && (
+                      <button
+                        onClick={() => setEditingClassId(true)}
+                        className="text-blue-500 hover:text-blue-700 text-sm"
+                      >
+                        ✏️ 편집
+                      </button>
+                    )}
+                  </div>
+                )}
+                {isTeacher() && !classId && (
+                  <div className="text-xs text-red-500 mt-1">
+                    ⚠️ 학급 ID를 설정해야 학생 목록을 볼 수 있습니다.
+                  </div>
+                )}
               </div>
               
               {isStudent() && (
@@ -367,23 +603,79 @@ const Settings = () => {
           </button>
         </div>
 
-        {/* 고급 계정 설정 */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-          <button
-            onClick={handleResetRole}
-            disabled={loading}
-            className="bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold py-4 px-6 rounded-xl hover:from-blue-600 hover:to-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 font-korean"
-          >
-            🔁 역할 재설정
-          </button>
+        {/* 교사 전용: 수업 관리 */}
+        {isTeacher() && (
+          <div className="bg-white rounded-3xl p-6 shadow-soft mb-6">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6 font-korean">🎓 수업 관리</h2>
+            
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <span className="text-yellow-400 text-xl">⚠️</span>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-yellow-700 font-korean">
+                    <strong>주의:</strong> 수업내용 리셋은 연결된 모든 학생의 학습 데이터를 삭제합니다.
+                    이 작업은 되돌릴 수 없으니 신중하게 결정해주세요.
+                  </p>
+                </div>
+              </div>
+            </div>
 
-          <button
-            onClick={handleDeleteAccount}
-            disabled={loading}
-            className="bg-gradient-to-r from-gray-700 to-gray-800 text-white font-bold py-4 px-6 rounded-xl hover:from-black hover:to-gray-900 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 font-korean"
-          >
-            🗑️ 회원탈퇴
-          </button>
+            <button
+              onClick={handleResetClassData}
+              disabled={loading || !classId}
+              className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold py-4 px-6 rounded-xl hover:from-orange-600 hover:to-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 font-korean"
+            >
+              {loading ? '처리 중...' : '🔄 수업내용 리셋 (모든 학생 데이터 초기화)'}
+            </button>
+            
+            {!classId && (
+              <p className="text-xs text-red-500 mt-2 text-center">
+                학급 ID를 설정해야 이 기능을 사용할 수 있습니다.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* 고급 계정 설정 */}
+        <div className="bg-white rounded-3xl p-6 shadow-soft mb-6">
+          <h2 className="text-2xl font-bold text-gray-800 mb-6 font-korean">⚙️ 고급 설정</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <button
+              onClick={handleResetRole}
+              disabled={loading}
+              className="bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold py-4 px-6 rounded-xl hover:from-blue-600 hover:to-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 font-korean"
+            >
+              {loading ? '처리 중...' : '🔁 역할 재설정'}
+            </button>
+
+            <button
+              onClick={handleDeleteAccount}
+              disabled={loading}
+              className="bg-gradient-to-r from-red-600 to-red-700 text-white font-bold py-4 px-6 rounded-xl hover:from-red-700 hover:to-red-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 font-korean"
+            >
+              {loading ? '처리 중...' : '🗑️ 회원탈퇴'}
+            </button>
+          </div>
+
+          <div className="mt-4 p-4 bg-red-50 border-l-4 border-red-400 rounded">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <span className="text-red-400 text-xl">⚠️</span>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-red-700 font-korean">
+                  <strong>회원탈퇴 시 삭제되는 데이터:</strong><br/>
+                  • 계정 정보 및 로그인 권한<br/>
+                  • 모든 학습 진도 및 별 데이터<br/>
+                  • 생성한 마커, 댓글, 좋아요<br/>
+                  {isTeacher() && '• 초대코드 및 학급 관리 권한'}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* 하단 안내 */}

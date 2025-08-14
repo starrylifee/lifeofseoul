@@ -147,9 +147,19 @@ const TeacherStarPanel = ({ lessonId }) => {
             ))}
           </select>
           {students.length === 0 && (
-            <p className="text-xs text-red-500 mt-1">
-              학생 목록을 불러오는 중이거나 등록된 학생이 없습니다.
-            </p>
+            <div className="text-xs text-red-500 mt-1">
+              {!classId ? (
+                <div>
+                  ⚠️ 학급 ID가 설정되지 않았습니다. 
+                  <br />
+                  <a href="/settings" className="text-blue-500 hover:text-blue-700 underline">
+                    설정 페이지
+                  </a>에서 학급 ID를 설정해주세요.
+                </div>
+              ) : (
+                '학생 목록을 불러오는 중이거나 등록된 학생이 없습니다.'
+              )}
+            </div>
           )}
         </div>
 
