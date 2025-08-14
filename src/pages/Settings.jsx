@@ -174,6 +174,15 @@ const Settings = () => {
       // 모든 삭제 작업 실행
       await Promise.all(deletePromises);
       
+      // 삭제된 계정 기록 생성 (재가입 감지용)
+      const deletedAccountRef = doc(db, 'deletedAccounts', uid);
+      await setDoc(deletedAccountRef, {
+        email: currentUser.email,
+        deletedAt: serverTimestamp(),
+        role: userRole,
+        classId: classId || null
+      }).catch(() => {}); // 실패해도 계속 진행
+      
       // Firebase Auth 계정 삭제
       await deleteUser(auth.currentUser);
       

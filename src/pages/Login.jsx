@@ -7,7 +7,7 @@ import {
     createUserWithEmailAndPassword,
     signInWithPopup
 } from "firebase/auth";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, deleteDoc } from "firebase/firestore";
 import { useAuth } from '../contexts/AuthContext';
 
 function LoginPage() {
@@ -44,6 +44,46 @@ function LoginPage() {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
       const email = user.email;
+
+      // 기존 사용자 문서 확인 (탈퇴 후 재가입 감지)
+      const userDocRef = doc(db, "users", user.uid);
+      const userDoc = await getDoc(userDocRef);
+      
+      if (!userDoc.exists()) {
+        // 삭제된 계정 기록 확인
+        const deletedAccountRef = doc(db, 'deletedAccounts', user.uid);
+        const deletedAccountDoc = await getDoc(deletedAccountRef);
+        
+        let isReturningUser = false;
+        if (deletedAccountDoc.exists()) {
+          isReturningUser = true;
+          const deletedData = deletedAccountDoc.data();
+          console.log('탈퇴 후 재가입 감지:', email, '탈퇴일:', deletedData.deletedAt);
+          
+          // 사용자에게 재가입 알림
+          alert(
+            '🔄 재가입 안내\n\n' +
+            '이전에 탈퇴하신 계정으로 다시 가입하셨습니다.\n' +
+            '모든 데이터가 초기화되어 새로 시작하게 됩니다.\n\n' +
+            '환영합니다! 다시 Life of Seoul을 이용해주셔서 감사합니다.'
+          );
+          
+          // 삭제된 계정 기록 제거
+          await deleteDoc(deletedAccountRef).catch(() => {});
+        } else {
+          console.log('완전히 새로운 사용자:', email);
+        }
+        
+        // 기본 사용자 문서 생성
+        await setDoc(userDocRef, {
+          email: user.email,
+          role: 'needs_setup',
+          status: 'approved',
+          createdAt: new Date(),
+          loginMethod: 'google',
+          isReturningUser: isReturningUser
+        }, { merge: true });
+      }
 
       // 서울시 교육청 도메인 확인 (*.sen.es.kr 패턴)
       if (!email.includes('.sen.es.kr')) {
@@ -345,7 +385,7 @@ function LoginPage() {
         {/* 하단 정보 */}
         <div className="text-center mt-8">
           <p className="text-sm text-gray-500 font-korean">
-            🏫 서울특별시 교육청 인증 교육 도구
+            🏫 서울특별시 사회과 지역화 교육도구
           </p>
         </div>
       </div>
