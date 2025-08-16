@@ -79,6 +79,24 @@ export function AuthProvider({ children }) {
           await ensureAtLeastOneInviteCodeForTeacher(user.uid, user.email);
         }
 
+        // 학생인데 classId가 비어 있고 teacherId는 있는 경우 → 교사의 classId로 자동 동기화
+        if (userData.role === 'student' && !userData.classId && userData.teacherId) {
+          try {
+            const teacherRef = doc(db, 'users', userData.teacherId);
+            const teacherSnap = await getDoc(teacherRef);
+            if (teacherSnap.exists()) {
+              const teacherClassId = teacherSnap.data().classId || null;
+              if (teacherClassId) {
+                await setDoc(userDocRef, { classId: teacherClassId }, { merge: true });
+                setClassId(teacherClassId);
+                console.log('학생 classId가 교사 설정값으로 동기화되었습니다:', teacherClassId);
+              }
+            }
+          } catch (e) {
+            console.warn('학생 classId 자동 동기화 실패:', e);
+          }
+        }
+
       } else {
         console.log("사용자 문서가 존재하지 않습니다. 기본 프로필을 생성합니다.");
         await setDoc(userDocRef, {
@@ -98,43 +116,83 @@ export function AuthProvider({ children }) {
 
   // 교사가 자신의 학급 학생들을 조회하는 함수
   const fetchClassStudents = async () => {
-    if (!isTeacher() || !classId) {
+    if (!isTeacher() || (!classId && !currentUser?.uid)) {
       return [];
     }
 
     // 캐시 확인 (5분간 유효)
-    const cacheKey = classId;
+    const cacheKey = classId || currentUser.uid;
     const now = Date.now();
     const cacheExpiry = 5 * 60 * 1000; // 5분
     
     if (cachedStudents.has(cacheKey) && lastCacheTime.has(cacheKey)) {
       const timeDiff = now - lastCacheTime.get(cacheKey);
       if (timeDiff < cacheExpiry) {
-        console.log(`학생 목록 캐시 사용: ${classId}`);
+        console.log(`학생 목록 캐시 사용: ${cacheKey}`);
         return cachedStudents.get(cacheKey);
       }
     }
 
     try {
-      console.log(`학생 목록 새로 로드: ${classId}`);
-      const studentsQuery = query(
+      console.log(`학생 목록 새로 로드: classId=${classId}, teacherId=${currentUser.uid}`);
+      
+      // classId와 teacherId 둘 다 확인하는 복합 쿼리
+      let allStudents = [];
+      
+      // 1. classId로 조회
+      if (classId) {
+        const classIdQuery = query(
+          collection(db, "users"),
+          where("classId", "==", classId),
+          where("role", "==", "student")
+        );
+        
+        const classIdSnapshot = await getDocs(classIdQuery);
+        const classIdStudents = classIdSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        
+        allStudents = [...classIdStudents];
+        console.log(`classId로 찾은 학생: ${classIdStudents.length}명`);
+      }
+      
+      // 2. teacherId로 조회
+      const teacherIdQuery = query(
         collection(db, "users"),
-        where("classId", "==", classId),
-        where("role", "==", "student"),
-        orderBy("studentNumber", "asc")
+        where("teacherId", "==", currentUser.uid),
+        where("role", "==", "student")
       );
       
-      const studentsSnapshot = await getDocs(studentsQuery);
-      const students = studentsSnapshot.docs.map(doc => ({
+      const teacherIdSnapshot = await getDocs(teacherIdQuery);
+      const teacherIdStudents = teacherIdSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
       
+      console.log(`teacherId로 찾은 학생: ${teacherIdStudents.length}명`);
+      
+      // 중복 제거하여 병합
+      teacherIdStudents.forEach(student => {
+        if (!allStudents.some(s => s.id === student.id)) {
+          allStudents.push(student);
+        }
+      });
+      
+      // 학번 순으로 정렬
+      allStudents.sort((a, b) => {
+        const numA = a.studentNumber || 0;
+        const numB = b.studentNumber || 0;
+        return numA - numB;
+      });
+      
+      console.log(`총 학생 수: ${allStudents.length}명`);
+      
       // 캐시에 저장
-      setCachedStudents(prev => new Map(prev).set(cacheKey, students));
+      setCachedStudents(prev => new Map(prev).set(cacheKey, allStudents));
       setLastCacheTime(prev => new Map(prev).set(cacheKey, now));
-
-      return students;
+      
+      return allStudents;
     } catch (error) {
       console.error("학급 학생 조회 오류:", error);
       return [];

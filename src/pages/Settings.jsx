@@ -364,10 +364,7 @@ const Settings = () => {
                 <div className="text-lg font-medium text-gray-800">{currentUser?.email || 'N/A'}</div>
               </div>
               
-              <div className="p-4 bg-gray-50 rounded-xl">
-                <label className="block text-sm font-medium text-gray-700 mb-2 font-korean">사용자 ID</label>
-                <div className="text-lg font-medium text-gray-800">{userId || 'N/A'}</div>
-              </div>
+
               
               <div className="p-4 bg-gray-50 rounded-xl">
                 <label className="block text-sm font-medium text-gray-700 mb-2 font-korean">역할</label>
@@ -436,12 +433,7 @@ const Settings = () => {
                 )}
               </div>
               
-              {isStudent() && (
-                <div className="p-4 bg-gray-50 rounded-xl">
-                  <label className="block text-sm font-medium text-gray-700 mb-2 font-korean">학생 번호</label>
-                  <div className="text-lg font-medium text-gray-800">{studentNumber || 'N/A'}번</div>
-                </div>
-              )}
+
               
               <div className="p-4 bg-gray-50 rounded-xl">
                 <label className="block text-sm font-medium text-gray-700 mb-2 font-korean">가입일</label>
@@ -456,137 +448,9 @@ const Settings = () => {
           </div>
         </div>
 
-        {/* 앱 정보 카드 */}
-        <div className="bg-white rounded-3xl p-6 shadow-soft mb-6">
-          <h2 className="text-2xl font-bold text-gray-800 mb-6 font-korean">📱 앱 정보</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div className="p-4 bg-gray-50 rounded-xl">
-                <label className="block text-sm font-medium text-gray-700 mb-2 font-korean">앱 이름</label>
-                <div className="text-lg font-medium text-gray-800">Life of Seoul</div>
-              </div>
-              
-              <div className="p-4 bg-gray-50 rounded-xl">
-                <label className="block text-sm font-medium text-gray-700 mb-2 font-korean">버전</label>
-                <div className="text-lg font-medium text-gray-800">v1.0.0</div>
-              </div>
-            </div>
 
-            <div className="space-y-4">
-              <div className="p-4 bg-gray-50 rounded-xl">
-                <label className="block text-sm font-medium text-gray-700 mb-2 font-korean">개발</label>
-                <div className="text-lg font-medium text-gray-800">서울특별시 교육청</div>
-              </div>
-              
-              <div className="p-4 bg-gray-50 rounded-xl">
-                <label className="block text-sm font-medium text-gray-700 mb-2 font-korean">마지막 업데이트</label>
-                <div className="text-lg font-medium text-gray-800">2024.12.31</div>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        {/* 권한 및 기능 카드 */}
-        <div className="bg-white rounded-3xl p-6 shadow-soft mb-6">
-          <h2 className="text-2xl font-bold text-gray-800 mb-6 font-korean">🔐 권한 및 기능</h2>
-          
-          <div className="space-y-4">
-            {isTeacher() ? (
-              <>
-                <div className="flex items-center justify-between p-4 bg-blue-50 rounded-xl">
-                  <div className="flex items-center">
-                    <span className="text-2xl mr-3">👥</span>
-                    <div>
-                      <div className="font-medium text-gray-800 font-korean">학급 관리</div>
-                      <div className="text-sm text-gray-600">학생 계정 생성 및 관리</div>
-                    </div>
-                  </div>
-                  <span className="text-green-600 font-medium">✅ 활성화</span>
-                </div>
-                
-                <div className="flex items-center justify-between p-4 bg-blue-50 rounded-xl">
-                  <div className="flex items-center">
-                    <span className="text-2xl mr-3">⭐</span>
-                    <div>
-                      <div className="font-medium text-gray-800 font-korean">별 지급</div>
-                      <div className="text-sm text-gray-600">학생들에게 별 지급</div>
-                    </div>
-                  </div>
-                  <span className="text-green-600 font-medium">✅ 활성화</span>
-                </div>
-                
-                <div className="flex items-center justify-between p-4 bg-blue-50 rounded-xl">
-                  <div className="flex items-center">
-                    <span className="text-2xl mr-3">📊</span>
-                    <div>
-                      <div className="font-medium text-gray-800 font-korean">진행 현황 조회</div>
-                      <div className="text-sm text-gray-600">학급 전체 학습 현황 확인</div>
-                    </div>
-                  </div>
-                  <span className="text-green-600 font-medium">✅ 활성화</span>
-                </div>
-                
-                <div className="flex items-center justify-between p-4 bg-blue-50 rounded-xl">
-                  <div className="flex items-center">
-                    <span className="text-2xl mr-3">🗺️</span>
-                    <div>
-                      <div className="font-medium text-gray-800 font-korean">마커 관리</div>
-                      <div className="text-sm text-gray-600">학생 마커 삭제 및 관리</div>
-                    </div>
-                  </div>
-                  <span className="text-green-600 font-medium">✅ 활성화</span>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex items-center justify-between p-4 bg-green-50 rounded-xl">
-                  <div className="flex items-center">
-                    <span className="text-2xl mr-3">📚</span>
-                    <div>
-                      <div className="font-medium text-gray-800 font-korean">수업 참여</div>
-                      <div className="text-sm text-gray-600">모든 레슨 접근 및 학습</div>
-                    </div>
-                  </div>
-                  <span className="text-green-600 font-medium">✅ 활성화</span>
-                </div>
-                
-                <div className="flex items-center justify-between p-4 bg-green-50 rounded-xl">
-                  <div className="flex items-center">
-                    <span className="text-2xl mr-3">📍</span>
-                    <div>
-                      <div className="font-medium text-gray-800 font-korean">마커 생성</div>
-                      <div className="text-sm text-gray-600">지도에 마커 및 댓글 작성</div>
-                    </div>
-                  </div>
-                  <span className="text-green-600 font-medium">✅ 활성화</span>
-                </div>
-                
-                <div className="flex items-center justify-between p-4 bg-green-50 rounded-xl">
-                  <div className="flex items-center">
-                    <span className="text-2xl mr-3">🎮</span>
-                    <div>
-                      <div className="font-medium text-gray-800 font-korean">펫 시스템</div>
-                      <div className="text-sm text-gray-600">별 수집 및 펫 키우기</div>
-                    </div>
-                  </div>
-                  <span className="text-green-600 font-medium">✅ 활성화</span>
-                </div>
-                
-                <div className="flex items-center justify-between p-4 bg-green-50 rounded-xl">
-                  <div className="flex items-center">
-                    <span className="text-2xl mr-3">👥</span>
-                    <div>
-                      <div className="font-medium text-gray-800 font-korean">친구와 공유</div>
-                      <div className="text-sm text-gray-600">다른 학급과 활동 공유</div>
-                    </div>
-                  </div>
-                  <span className="text-green-600 font-medium">✅ 활성화</span>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+
 
         {/* 액션 버튼들 */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

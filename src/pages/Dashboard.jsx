@@ -313,7 +313,7 @@ const Dashboard = () => {
                     <span className="text-4xl md:text-5xl">🗺️</span>
                   </div>
                   <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-2 font-korean">서울 탐험하기</h3>
-                  <p className="text-gray-600 text-sm md:text-base font-korean">서울 지도에서 자유롭게 탐험해보세요</p>
+                  <p className="text-gray-600 text-sm md:text-base font-korean">서울의 지도를 자유롭게 확인해보세요</p>
                   <div className="mt-4 bg-sunshine-50 rounded-xl p-3"><span className="text-sunshine-600 font-medium text-sm font-korean">🧭 서울+경기도 범위 지도</span></div>
                 </div>
               </Link>
@@ -355,6 +355,18 @@ const Dashboard = () => {
             </Link>
           )}
 
+          {/* 퀴즈 분석 카드 - 교사만 표시 */}
+          {isTeacher() && (
+            <Link to="/quiz-analytics" className="group bg-white rounded-3xl p-6 md:p-8 shadow-soft hover:shadow-friendly transition-all duration-300 hover:scale-105 border-2 border-gray-100 hover:border-gray-200">
+              <div className="text-center">
+                <div className="bg-gradient-to-br from-blue-400 to-purple-600 rounded-2xl p-4 md:p-6 mb-4 inline-block"><span className="text-4xl md:text-5xl">📊</span></div>
+                <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-2 font-korean">퀴즈 분석</h3>
+                <p className="text-gray-600 text-sm md:text-base font-korean">학생별/문항별 상세 분석을 확인하세요</p>
+                <div className="mt-4 bg-blue-50 rounded-xl p-3"><span className="text-blue-600 font-medium text-sm font-korean">📈 학습 데이터 분석</span></div>
+              </div>
+            </Link>
+          )}
+
           {/* 설정 카드 - 모든 사용자에게 표시 */}
           <Link to="/settings" className="group bg-white rounded-3xl p-6 md:p-8 shadow-soft hover:shadow-friendly transition-all duration-300 hover:scale-105 border-2 border-gray-100 hover:border-gray-200">
             <div className="text-center">
@@ -371,8 +383,8 @@ const Dashboard = () => {
                 <div className="text-center">
                   <div className="bg-gradient-to-br from-sunshine-400 to-sunshine-600 rounded-2xl p-4 md:p-6 mb-4 inline-block"><span className="text-4xl md:text-5xl">🗺️</span></div>
                   <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-2 font-korean">서울 탐험하기</h3>
-                  <p className="text-gray-600 text-sm md:text-base font-korean">서울+경기도 범위의 기본 지도를 확인해보세요</p>
-                  <div className="mt-4 bg-sunshine-50 rounded-xl p-3"><span className="text-sunshine-600 font-medium text-sm font-korean">서울 경계선(레슨1과 동일) 표시</span></div>
+                  <p className="text-gray-600 text-sm md:text-base font-korean">서울의 지도를 자유롭게 확인해보세요</p>
+                  <div className="mt-4 bg-sunshine-50 rounded-xl p-3"><span className="text-sunshine-600 font-medium text-sm font-korean">🧭 서울+경기도 범위 지도</span></div>
                 </div>
               </Link>
               {/* 친구들과 공유 항목 제거 */}

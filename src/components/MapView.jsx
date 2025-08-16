@@ -1482,7 +1482,9 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       isTeacherResult: isTeacher(),
       markerId: selectedMarker.id,
       markerUserId: selectedMarker.userId,
-      currentUserId: currentUser?.uid
+      currentUserId: currentUser?.uid,
+      markerClassId: selectedMarker.classId,
+      activeClassId
     });
     
     // 작성자 또는 교사만 삭제 가능하도록 체크
@@ -1494,6 +1496,16 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
     // 교사인 경우 학생 마커도 삭제 가능
     const isOwner = selectedMarker.userId === currentUser?.uid;
     const hasTeacherPermission = isTeacher();
+    
+    // 교사 권한: 담당 학급에 한해서만 삭제 허용
+    if (!isOwner && hasTeacherPermission) {
+      const markerClassId = selectedMarker.classId ? String(selectedMarker.classId) : null;
+      const myClassId = activeClassId ? String(activeClassId) : null;
+      if (!markerClassId || !myClassId || markerClassId !== myClassId) {
+        alert('담당 학급의 마커만 삭제할 수 있습니다.');
+        return;
+      }
+    }
     
     // 교사가 학생 마커 삭제 시 확인 메시지
     const confirmMessage = hasTeacherPermission && !isOwner
@@ -1709,13 +1721,16 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
         return;
       }
       
-      // 권한 검사 개선 - 교사는 모든 마커 삭제 가능
+      // 권한 검사: 작성자이거나, 교사이고 담당 학급의 마커일 때만 허용
       const isOwner = markerToDelete.userId === currentUser?.uid;
       const hasTeacherRole = userRole === 'teacher';
+      const markerClassId = markerToDelete.classId ? String(markerToDelete.classId) : null;
+      const myClassId = activeClassId ? String(activeClassId) : null;
+      const canDeleteAsTeacher = hasTeacherRole && markerClassId && myClassId && markerClassId === myClassId;
       
-      console.log("마커 삭제 권한 검사:", { isOwner, hasTeacherRole });
+      console.log("마커 삭제 권한 검사:", { isOwner, hasTeacherRole, markerClassId, myClassId, canDeleteAsTeacher });
       
-      if (!isOwner && !hasTeacherRole) {
+      if (!isOwner && !canDeleteAsTeacher) {
         alert('자신이 생성한 마커만 삭제할 수 있습니다.');
         return;
       }
@@ -1723,8 +1738,8 @@ function MapView({ center = [37.5665, 126.9780], zoom = 11, lessonId = '1', stud
       // Optimistically update local state
       setMarkers((prevMarkers) => prevMarkers.filter((m) => m.id !== markerId));
       
-      // 교사인 경우: 모든 학생 문서에서 중복 마커 제거
-      if (hasTeacherRole) {
+      // 교사인 경우: 담당 학급의 모든 학생 문서에서 중복 마커 제거
+      if (canDeleteAsTeacher) {
         console.log("교사 권한으로 모든 학생 문서에서 마커 삭제 시도");
         
         // 현재 반의 모든 학생 문서 확인

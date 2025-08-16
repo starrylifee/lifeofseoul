@@ -217,6 +217,7 @@ function LoginPage() {
 
       // 학생 계정인 경우 코드 검증 및 교사 계정 연결
       let teacherId = null;
+      let classId = null;
       if (signupRole === 'student') {
         // 가입 코드 검증 (예: DB에서 유효한 코드인지 확인)
         const inviteCodeRef = doc(db, "inviteCodes", signupCode);
@@ -236,6 +237,7 @@ function LoginPage() {
         }
         
         teacherId = inviteData.teacherId;
+        classId = inviteData.classId; // 초대코드에서 classId 가져오기
       }
 
       // Firebase Authentication을 통한 계정 생성
@@ -248,7 +250,7 @@ function LoginPage() {
         email: signupEmail,
         role: signupRole,
         createdAt: new Date(),
-        classId: signupRole === 'student' ? 'unassigned' : null,
+        classId: signupRole === 'student' ? classId : null,
         teacherId: teacherId,
         studentNumber: null,
         displayName: signupEmail.split('@')[0]
@@ -307,7 +309,7 @@ function LoginPage() {
         {/* 로고 및 타이틀 섹션 */}
         <div className="text-center mb-8">
           <div className="inline-block bg-white rounded-3xl p-6 shadow-friendly mb-6">
-            <span className="text-6xl">🏛️</span>
+            <img src="/assets/logo/logo.png" alt="서울의 생활 로고" className="h-20 w-auto" />
           </div>
           <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2 font-korean">
             Life of Seoul

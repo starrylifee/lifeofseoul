@@ -8,7 +8,7 @@ function RoleSelectionModal({ email, onRoleSet }) {
   const [classId, setClassId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [step, setStep] = useState(1); // 1: 역할 선택, 2: 교사 학급 입력
-  const { currentUser } = useAuth();
+  const { currentUser, fetchUserData } = useAuth();
   
   const handleRoleSelect = () => {
     if (!selectedRole) return;
@@ -54,6 +54,10 @@ function RoleSelectionModal({ email, onRoleSet }) {
         await generateInviteCodeWithClass(currentUser.uid, currentUser.email, classId.trim());
       }
 
+      // 컨텍스트 최신화 (설정 화면에서 즉시 반영)
+      if (currentUser) {
+        await fetchUserData(currentUser);
+      }
       onRoleSet(selectedRole);
     } catch (error) {
       console.error('역할 설정 오류:', error);

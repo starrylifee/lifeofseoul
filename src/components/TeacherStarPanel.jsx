@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { getClassStudents } from '../utils/api';
 import { awardStarsByTeacher, getClassStarRanking } from '../utils/starAPI';
 import { STAR_SOURCES } from '../utils/starSystem';
 import StarLevelDisplay from './StarLevelDisplay';
 
 const TeacherStarPanel = ({ lessonId }) => {
-  const { currentUser, classId } = useAuth();
+  const { currentUser, classId, fetchClassStudents } = useAuth();
   const [students, setStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState('');
   const [selectedSource, setSelectedSource] = useState('TEACHER_REWARD');
@@ -15,7 +14,7 @@ const TeacherStarPanel = ({ lessonId }) => {
   const [showRanking, setShowRanking] = useState(false);
   const [studentsLoading, setStudentsLoading] = useState(false);
 
-  // 학급 학생 목록 로드 (최적화: 캐싱 및 중복 호출 방지)
+  // 학급 학생 목록 로드 (AuthContext의 fetchClassStudents 사용)
   useEffect(() => {
     const fetchStudents = async () => {
       console.log('fetchStudents 시작');
@@ -42,7 +41,8 @@ const TeacherStarPanel = ({ lessonId }) => {
       
       try {
         console.log('학생 목록 로드 시도, classId:', classId);
-        const studentList = await getClassStudents(classId);
+        // AuthContext의 fetchClassStudents 사용
+        const studentList = await fetchClassStudents();
         console.log('로드된 학생 목록:', studentList);
         console.log('학생 수:', studentList.length);
         setStudents(studentList);
@@ -55,7 +55,7 @@ const TeacherStarPanel = ({ lessonId }) => {
     };
 
     fetchStudents();
-  }, [classId, currentUser?.uid, studentsLoading]); // currentUser 전체 대신 uid만 감시
+  }, [classId, currentUser, studentsLoading, fetchClassStudents]);
 
   // 학급 별 순위 로드
   const fetchClassRanking = async () => {

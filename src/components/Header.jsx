@@ -20,7 +20,7 @@ const Header = () => {
           {/* 로고 및 제목 */}
           <Link to="/" className="flex items-center space-x-3 hover:scale-105 transition-transform duration-200">
             <div className="bg-white p-2 md:p-3 rounded-2xl shadow-soft">
-              <span className="text-2xl md:text-3xl">🏙️</span>
+              <img src="/assets/logo/logo.png" alt="서울의 생활 로고" className="h-8 md:h-10" />
             </div>
             <div>
               <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-white font-korean">

@@ -18,6 +18,7 @@ import TeacherProgress from './pages/TeacherProgress';
 import Progress from './pages/Progress';
 import Settings from './pages/Settings';
 import Help from './pages/Help';
+import QuizAnalytics from './pages/QuizAnalytics';
 
 function ProtectedRoute({ children }) {
   const { currentUser } = useAuth();
@@ -50,6 +51,7 @@ function App() {
             <Route path="/explore" element={<ProtectedRoute><Explore /></ProtectedRoute>} />
             <Route path="/help" element={<ProtectedRoute><Help /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route path="/quiz-analytics" element={<ProtectedRoute><QuizAnalytics /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to={isLoggedIn ? "/" : "/login"} replace />} />
           </Routes>
         </main>
