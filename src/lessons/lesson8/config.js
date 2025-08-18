@@ -69,7 +69,7 @@ const lesson8Config = {
     },
     {
       id: 'q3',
-      text: '현재 복원된 서대문의 이름은',
+      text: '서대문의 공식 이름은',
       options: ['돈의문', '서소문', '소의문', '창의문'],
       answer: '돈의문'
     },
