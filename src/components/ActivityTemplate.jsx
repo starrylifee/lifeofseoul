@@ -356,23 +356,7 @@ function ActivityTemplate({ lessonConfig, children, lessonId, activityData, onSt
         {currentStep === LESSON_STEPS.COLLABORATIVE && renderCollaborativeActivity()}
       </div>
 
-      {/* Certificate Display (if generated) */}
-      {certificateUrl && (
-        <div className="mb-6 text-center">
-          <h3 className="text-xl font-semibold mb-2">🏆 인증장</h3>
-          <img 
-            src={certificateUrl} 
-            alt="학습 인증장" 
-            className="max-w-full h-auto mx-auto border p-2"
-          />
-          <button 
-            onClick={() => window.open(certificateUrl, '_blank')}
-            className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
-            인증장 다운로드
-          </button>
-        </div>
-      )}
+      {/* 인증장 UI 제거 */}
 
       {/* Navigation Buttons */}
       <div className="flex justify-between">
@@ -391,14 +375,6 @@ function ActivityTemplate({ lessonConfig, children, lessonId, activityData, onSt
             className="px-4 py-2 bg-blue-500 text-white rounded disabled:opacity-50 hover:bg-blue-600 transition-colors"
           >
             {isLoading ? '저장 중...' : '다음'}
-          </button>
-        ) : allStepsCompleted ? (
-          <button 
-            onClick={generateCertificate} 
-            disabled={isLoading || certificateUrl}
-            className="px-4 py-2 bg-green-500 text-white rounded disabled:opacity-50 hover:bg-green-600 transition-colors"
-          >
-            {isLoading ? '생성 중...' : certificateUrl ? '인증장 발급 완료' : '🏆 인증장 발급'}
           </button>
         ) : (
           <button 

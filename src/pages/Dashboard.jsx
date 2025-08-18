@@ -76,12 +76,13 @@ const Dashboard = () => {
           let questionsCompleted = 0;
           if (activityDoc.exists()) {
             const data = activityDoc.data();
-            questionsCompleted = data.questionsCompleted || 0;
+            const answersCount = data.answers ? Object.keys(data.answers).length : 0;
             totalQuestions = data.totalQuestions || totalMap[lesson.id] || 8;
-            completionRate = Math.round((questionsCompleted / totalQuestions) * 100);
-            if (questionsCompleted === 0) status = 'in_progress';
-            else if (questionsCompleted === totalQuestions) { status = 'completed'; completedCount++; }
+            completionRate = Math.round((answersCount / totalQuestions) * 100);
+            if (answersCount === 0) status = 'in_progress';
+            else if (answersCount === totalQuestions) { status = 'completed'; completedCount++; }
             else status = 'in_progress';
+            questionsCompleted = answersCount;
           }
           progressData.push({
             ...lesson,

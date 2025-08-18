@@ -70,10 +70,9 @@ const Progress = () => {
           
           if (activityDoc.exists()) {
             const data = activityDoc.data();
-            questionsCompleted = data.questionsCompleted || 0;
             const markers = data.markers || [];
             markerCount = markers.length;
-            
+
             // 마커 정보 저장 (최근 생성된 것들)
             markers.forEach(marker => {
               allMarkers.push({
@@ -83,19 +82,21 @@ const Progress = () => {
                 lessonIcon: lesson.icon
               });
             });
-            
+
+            const answersCount = data.answers ? Object.keys(data.answers).length : 0;
             totalQuestionsForLesson = data.totalQuestions || totalMap[lesson.id] || 8;
-            completionRate = Math.round((questionsCompleted / totalQuestionsForLesson) * 100);
-            
-            if (questionsCompleted === 0) {
+            completionRate = Math.round((answersCount / totalQuestionsForLesson) * 100);
+
+            if (answersCount === 0) {
               status = 'in_progress';
-            } else if (questionsCompleted === totalQuestionsForLesson) {
+            } else if (answersCount === totalQuestionsForLesson) {
               status = 'completed';
               completedCount++;
             } else {
               status = 'in_progress';
             }
-            
+
+            questionsCompleted = answersCount;
             totalMarkers += markerCount;
           }
           
