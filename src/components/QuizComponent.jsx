@@ -190,9 +190,10 @@ function QuizComponent({ lessonConfig, lessonId }) {
 
   const getCorrectAnswersCount = () => {
     if (!lessonConfig?.questions) return 0;
-    return lessonConfig.questions.filter(question => 
-      answers[question.id] === question.answer
-    ).length;
+    return lessonConfig.questions.filter((question) => {
+      const correctOption = getCorrectOption(question);
+      return answers[question.id] === correctOption;
+    }).length;
   };
 
   if (!lessonConfig?.questions || lessonConfig.questions.length === 0) {
@@ -253,10 +254,9 @@ function QuizComponent({ lessonConfig, lessonId }) {
             </select>
             {showResults && (
               <div className={`mt-2 text-sm font-medium ${getResultColor(question.id)}`}>
-                {answers[question.id] === question.answer 
-                  ? '✅ 정답입니다!' 
-                  : `❌ 틀렸습니다. 정답: ${question.answer}`
-                }
+                {answers[question.id] === getCorrectOption(question) 
+                  ? '✅ 정답입니다!'
+                  : `❌ 틀렸습니다. 정답: ${getCorrectOption(question)}`}
               </div>
             )}
           </div>
