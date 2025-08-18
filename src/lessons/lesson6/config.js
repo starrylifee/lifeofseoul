@@ -96,8 +96,8 @@ const lesson6Config = {
     {
       id: 'q8',
       text: '한국 전통문화를 체험할 수 있는 곳은',
-      options: ['북촌한옥마을', '인사동', '경복궁', '모든 답이 맞음'],
-      answer: '모든 답이 맞음'
+      options: ['북촌한옥마을', '한강', '신촌', '영등포'],
+      answer: '북촌한옥마을을'
     }
   ],
   mapConfig: {

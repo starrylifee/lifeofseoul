@@ -114,6 +114,8 @@ function QuizComponent({ lessonConfig, lessonId }) {
       
       setQuestionsCompleted(correctCount);
       setSavedAnswers(answers);
+      // 제출 직후 결과 표시를 활성화하여 새로고침 없이 정오답 피드백을 보여줌
+      setShowResults(true);
       
       // 성공 메시지 (시도 횟수에 따라 다른 메시지)
       if (isPerfectScore) {
