@@ -65,9 +65,9 @@ const lesson2Config = {
     },
     {
       id: 'q3',
-      text: '한강 다리 중중 무지개 분수가 나오는 다리는?',
+      text: '한강 다리 중 무지개 분수가 나오는 다리는?',
       options: ['광진교', '한강대교', '반포대교', '원효대교'],
-      answer: '모든 답이 맞음'
+      answer: '반포대교'
     }
   ],
   mapConfig: {

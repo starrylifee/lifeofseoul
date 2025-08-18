@@ -72,7 +72,7 @@ const lesson4Config = {
     {
       id: 'q4',
       text: 'KTX가 출발하는 주요 역은',
-      options: ['구파발역', '강남역', '청량리역', '용산역'],
+      options: ['구파발역', '강남역', '신답역', '용산역'],
       answer: '용산역'
     },
     {
