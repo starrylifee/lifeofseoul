@@ -224,7 +224,7 @@ function QuizComponent({ lessonConfig, lessonId }) {
               onChange={(e) => handleAnswerChange(question.id, e.target.value)}
               disabled={showResults}
             >
-              <option value="">방향을 선택하세요</option>
+              <option value="">정답을 선택하세요</option>
               {question.options.map((option) => (
                 <option key={option} value={option}>
                   {option}
