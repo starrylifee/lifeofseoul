@@ -14,6 +14,24 @@ function QuizComponent({ lessonConfig, lessonId }) {
   const [starAttempts, setStarAttempts] = useState(0);
   const [firstAttemptPerfect, setFirstAttemptPerfect] = useState(false);
 
+  // 선지 기반으로 정답 텍스트를 안정적으로 찾는 헬퍼
+  const getCorrectOption = (question) => {
+    const options = Array.isArray(question?.options) ? question.options : [];
+    const answer = (question?.answer ?? '').toString();
+    // 1) 완전 일치
+    const exact = options.find((o) => o === answer);
+    if (exact) return exact;
+    // 2) 공백 제거/정규화 후 일치
+    const strip = (s) => s.toString().replace(/\s+/g, '').trim();
+    const normalized = options.find((o) => strip(o) === strip(answer));
+    if (normalized) return normalized;
+    // 3) 포함 관계 (양방향)
+    const contains = options.find((o) => o.includes(answer) || answer.includes(o));
+    if (contains) return contains;
+    // 4) 최후 수단: 원문 반환
+    return answer;
+  };
+
   // 기존 답안 불러오기
   useEffect(() => {
     const loadSavedAnswers = async () => {
@@ -74,10 +92,11 @@ function QuizComponent({ lessonConfig, lessonId }) {
     setLoading(true);
     
     try {
-      // 정답 개수 계산
+      // 정답 개수 계산 (선지 정규화 매칭 사용)
       let correctCount = 0;
-      lessonConfig.questions.forEach(question => {
-        if (answers[question.id] === question.answer) {
+      lessonConfig.questions.forEach((question) => {
+        const correctOption = getCorrectOption(question);
+        if (answers[question.id] === correctOption) {
           correctCount++;
         }
       });
@@ -165,7 +184,8 @@ function QuizComponent({ lessonConfig, lessonId }) {
   const getResultColor = (questionId) => {
     const question = lessonConfig?.questions?.find(q => q.id === questionId);
     if (!question || !answers[questionId]) return '';
-    return answers[questionId] === question.answer ? 'text-green-600' : 'text-red-600';
+    const correctOption = getCorrectOption(question);
+    return answers[questionId] === correctOption ? 'text-green-600' : 'text-red-600';
   };
 
   const getCorrectAnswersCount = () => {
